@@ -1,0 +1,25 @@
+print "=== BUILTIN TEST ==="
+
+print upper("hello world")
+
+print lower("HELLO WORLD")
+
+print length("Programming")
+
+numbers = [1, 2, 3]
+
+print numbers
+
+print append(numbers, 4)
+
+print append(numbers, 5)
+
+print numbers
+
+print remove(numbers, 2)
+
+print numbers
+
+print random(1, 10)
+
+print "=== COMPLETE ==="

@@ -1,0 +1,16 @@
+print "=== LINE ERROR TEST ==="
+
+x = 10
+y = 20
+
+if x < y
+
+    print "x is smaller"
+
+    if y > 10
+
+        print "nested if works"
+
+# Missing END statements below
+
+print "this should never execute"

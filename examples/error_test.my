@@ -1,0 +1,11 @@
+print "=== ERROR TEST ==="
+
+print unknown_variable
+
+numbers = [1, 2, 3]
+
+print numbers[99]
+
+print fake_function()
+
+print "=== COMPLETE ==="

@@ -1,0 +1,125 @@
+print "=== PHASE 2 STDLIB TEST ==="
+
+# -------------------------
+# STRING
+# -------------------------
+
+print "--- STRING ---"
+
+print trim("  hello world  ")
+
+print replace("hello world", "world", "MyLang")
+
+parts = split("one,two,three", ",")
+print parts
+
+print contains("hello world", "world")
+print contains("hello world", "python")
+
+print starts_with("hello world", "hello")
+print starts_with("hello world", "world")
+
+print ends_with("hello world", "world")
+print ends_with("hello world", "hello")
+
+print repeat_str("ab", 3)
+
+print reverse("MyLang")
+
+# -------------------------
+# MATH
+# -------------------------
+
+print "--- MATH ---"
+
+print abs(-42)
+print abs(42)
+
+print max(10, 20)
+print min(10, 20)
+
+print pow(2, 8)
+
+print sqrt(144)
+
+print clamp(5, 0, 10)
+print clamp(-5, 0, 10)
+print clamp(15, 0, 10)
+
+print random(1, 100)
+
+# -------------------------
+# LIST
+# -------------------------
+
+print "--- LIST ---"
+
+nums = [3, 1, 4, 1, 5, 9, 2, 6]
+
+print first(nums)
+print last(nums)
+
+print reverse_list(nums)
+
+print slice(nums, 1, 4)
+
+print contains_item(nums, 9)
+print contains_item(nums, 7)
+
+print sort(nums)
+
+print index_of(nums, 5)
+print index_of(nums, 99)
+
+nested = [[1, 2], [3, 4], [5]]
+print flatten(nested)
+
+# -------------------------
+# DICTIONARY
+# -------------------------
+
+print "--- DICTIONARY ---"
+
+player = {"name": "Jeremy", "hp": 100, "mana": 50}
+
+print keys(player)
+print values(player)
+print exists(player, "hp")
+print exists(player, "gold")
+
+print get(player, "hp", 0)
+print get(player, "gold", 999)
+
+extra = {"gold": 500, "level": 5}
+combined = merge(player, extra)
+print combined
+
+player = delete(player, "mana")
+print player
+
+# -------------------------
+# TYPE CONVERSION
+# -------------------------
+
+print "--- TYPE CONVERSION ---"
+
+print to_int("42")
+print to_str(100)
+print to_bool(0)
+print to_bool(1)
+print to_bool("true")
+print to_bool("false")
+
+print type_of(42)
+print type_of("hello")
+print type_of(nums)
+print type_of(player)
+
+# -------------------------
+# INPUT / OUTPUT
+# -------------------------
+
+print "--- INPUT / OUTPUT ---"
+print "input() is interactive — skipped in batch test"
+
+print "=== COMPLETE ==="

@@ -1,0 +1,15 @@
+print "=== DICTIONARY BUILTIN TEST ==="
+
+player = {
+    "name": "Jeremy",
+    "hp": 100,
+    "mana": 50
+}
+
+print keys(player)
+print values(player)
+
+print exists(player, "name")
+print exists(player, "gold")
+
+print "=== COMPLETE ==="

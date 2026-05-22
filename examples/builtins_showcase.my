@@ -1,0 +1,204 @@
+print "====================================="
+print "     MYLANG STDLIB SHOWCASE"
+print "====================================="
+
+# ===================================
+# STRING FUNCTIONS
+# ===================================
+
+print ""
+print "--- STRING FUNCTIONS ---"
+
+# trim  — strip whitespace from both ends
+msg = trim("   Hello, MyLang!   ")
+print msg
+
+# replace  — swap a substring
+msg = replace("I love Python", "Python", "MyLang")
+print msg
+
+# contains  — check if a string has a substring
+print contains("roller coaster", "coaster")
+print contains("roller coaster", "rocket")
+
+# starts_with / ends_with
+print starts_with("MyLang is fun", "MyLang")
+print ends_with("MyLang is fun", "fun")
+
+# reverse  — flip a string
+print reverse("abcdef")
+
+# repeat_str  — repeat a string N times
+print repeat_str("ha", 4)
+
+# split  — chop a string into a list
+words = split("one two three four", " ")
+print words
+print length(words)
+
+# ===================================
+# MATH FUNCTIONS
+# ===================================
+
+print ""
+print "--- MATH FUNCTIONS ---"
+
+# abs  — absolute value
+print abs(-99)
+print abs(42)
+
+# max / min
+print max(17, 83)
+print min(17, 83)
+
+# pow  — raise to a power
+print pow(2, 10)
+
+# sqrt  — integer square root
+print sqrt(225)
+
+# clamp  — keep a value inside a range
+print clamp(5, 0, 100)
+print clamp(-20, 0, 100)
+print clamp(999, 0, 100)
+
+# random  — random number between two bounds
+dice = random(1, 6)
+print dice
+
+# ===================================
+# LIST FUNCTIONS
+# ===================================
+
+print ""
+print "--- LIST FUNCTIONS ---"
+
+scores = [42, 7, 99, 3, 55, 18]
+
+# first / last
+print first(scores)
+print last(scores)
+
+# sort
+sorted_scores = sort(scores)
+print sorted_scores
+
+# reverse_list
+print reverse_list(sorted_scores)
+
+# slice  — grab a sub-list (start inclusive, end exclusive)
+print slice(sorted_scores, 0, 3)
+
+# contains_item
+print contains_item(scores, 99)
+print contains_item(scores, 100)
+
+# index_of  — returns -1 if not found
+print index_of(scores, 99)
+print index_of(scores, 100)
+
+# append / remove
+scores = append(scores, 77)
+print scores
+scores = remove(scores, 7)
+print scores
+
+# flatten  — collapse one level of nested lists
+nested = [[1, 2, 3], [4, 5], [6]]
+flat = flatten(nested)
+print flat
+
+# ===================================
+# DICTIONARY FUNCTIONS
+# ===================================
+
+print ""
+print "--- DICTIONARY FUNCTIONS ---"
+
+player = {"name": "Jeremy", "hp": 100, "mana": 50, "level": 1}
+
+# keys / values
+print keys(player)
+print values(player)
+
+# exists
+print exists(player, "hp")
+print exists(player, "gold")
+
+# get with default  — safe lookup
+print get(player, "hp", 0)
+print get(player, "gold", 0)
+
+# delete  — remove a key
+player = delete(player, "mana")
+print player
+
+# merge  — combine two dictionaries (second wins on conflict)
+bonuses = {"gold": 500, "level": 10}
+merged = merge(player, bonuses)
+print merged
+
+# ===================================
+# TYPE CONVERSION FUNCTIONS
+# ===================================
+
+print ""
+print "--- TYPE CONVERSION ---"
+
+# to_int
+num = to_int("999")
+print num
+print num + 1
+
+# to_str
+text = to_str(12345)
+print text
+print length(text)
+
+# to_bool
+print to_bool(1)
+print to_bool(0)
+print to_bool("true")
+print to_bool("false")
+
+# type_of  — returns the type name as a string
+print type_of(42)
+print type_of("hello")
+print type_of(scores)
+print type_of(player)
+
+# ===================================
+# COMBINED EXAMPLE
+# ===================================
+
+print ""
+print "--- COMBINED EXAMPLE ---"
+
+# Build a leaderboard from raw input data
+
+raw = ["Alice:980", "Bob:750", "Charlie:1200", "Diana:860"]
+
+names = []
+totals = []
+
+foreach entry in raw
+
+    parts = split(entry, ":")
+    names = append(names, first(parts))
+    totals = append(totals, to_int(last(parts)))
+
+end
+
+print names
+print totals
+print "Top score:"
+print max(first(totals), last(totals))
+print "Lowest score:"
+print first(sort(totals))
+print "Total players:"
+print length(names)
+
+print ""
+print "====================================="
+print "           ALL DONE!"
+print "====================================="

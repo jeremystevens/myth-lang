@@ -1,0 +1,39 @@
+print "=== IMPORT SYSTEM TEST ==="
+
+# -------------------------
+# BASIC IMPORT
+# -------------------------
+# Load functions from greetings.my into global scope
+
+import greetings
+
+say_hello("Alice")
+say_goodbye("Bob")
+
+# -------------------------
+# SECOND MODULE IMPORT
+# -------------------------
+
+import mathutils
+
+result = square(7)
+print result
+
+result = double(21)
+print result
+
+result = clamp(150, 0, 100)
+print result
+
+# -------------------------
+# DUPLICATE IMPORT CACHE TEST
+# -------------------------
+# These are silently skipped — greetings and
+# mathutils are already in the import cache
+
+import greetings
+import mathutils
+
+say_hello("CacheTestPassed")
+
+print "=== COMPLETE ==="

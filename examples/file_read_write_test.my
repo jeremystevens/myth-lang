@@ -1,0 +1,40 @@
+print "=== FILE READ / WRITE TEST ==="
+
+# -------------------------
+# WRITE A FILE
+# -------------------------
+
+write_file("my_notes.txt", "Hello from MyLang!\nThis is line two.\nThis is line three.\n")
+
+print "File written."
+
+# -------------------------
+# CHECK IT EXISTS
+# -------------------------
+
+print file_exists("my_notes.txt")
+
+# -------------------------
+# READ IT BACK
+# -------------------------
+
+content = read_file("my_notes.txt")
+print content
+
+# -------------------------
+# APPEND TO IT
+# -------------------------
+
+append_file("my_notes.txt", "This line was appended.\n")
+
+content = read_file("my_notes.txt")
+print content
+
+# -------------------------
+# CLEAN UP
+# -------------------------
+
+delete_file("my_notes.txt")
+print file_exists("my_notes.txt")
+
+print "=== DONE ==="

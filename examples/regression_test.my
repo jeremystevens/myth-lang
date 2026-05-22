@@ -1,0 +1,123 @@
+print "=== REGRESSION TEST START ==="
+
+# -------------------------
+# VARIABLES
+# -------------------------
+
+name = "Jeremy"
+age = 25
+
+print name
+print age
+
+# -------------------------
+# MATH
+# -------------------------
+
+x = 10
+y = 20
+
+print x + y
+print x * y
+print (x + 5) * 2
+
+# -------------------------
+# BOOLEAN LOGIC
+# -------------------------
+
+if x < y and y > 5
+    print "BOOLEAN AND OK"
+end
+
+if x == 10 or y == 5
+    print "BOOLEAN OR OK"
+end
+
+if not x == 5
+    print "BOOLEAN NOT OK"
+end
+
+# -------------------------
+# WHILE LOOP
+# -------------------------
+
+counter = 0
+
+while counter < 3
+
+    print counter
+
+    counter = counter + 1
+
+end
+
+# -------------------------
+# FOR LOOP
+# -------------------------
+
+for i = 1 to 3
+
+    print i
+
+end
+
+# -------------------------
+# FOREACH LOOP
+# -------------------------
+
+numbers = [10, 20, 30]
+
+foreach item in numbers
+
+    print item
+
+end
+
+# -------------------------
+# INDEXING
+# -------------------------
+
+print numbers[0]
+print numbers[1]
+
+numbers[1] = 999
+
+print numbers
+
+# -------------------------
+# FUNCTIONS
+# -------------------------
+
+function greet person
+
+    print "Hello " + person
+
+end
+
+call greet "Alice"
+
+function add a b
+
+    return a + b
+
+end
+
+result = add(5, 10)
+
+print result
+
+# -------------------------
+# BUILTINS
+# -------------------------
+
+print upper("hello")
+print lower("HELLO")
+print length(numbers)
+
+print append(numbers, 123)
+
+print remove(numbers, 30)
+
+print random(1, 5)
+
+print "=== REGRESSION TEST END ==="

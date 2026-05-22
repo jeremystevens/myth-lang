@@ -1,0 +1,23 @@
+print "=== INDEX ASSIGN TEST ==="
+
+numbers = [10, 20, 30]
+
+print numbers
+
+numbers[1] = 99
+
+print numbers
+
+numbers[0] = 500
+
+print numbers
+
+names = ["Jeremy", "Alice", "Bob"]
+
+print names
+
+names[2] = "Charlie"
+
+print names
+
+print "=== COMPLETE ==="

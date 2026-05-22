@@ -1,0 +1,22 @@
+print "=== IF TEST ==="
+
+x = 10
+y = 20
+
+if x < y then
+
+    print "x is smaller"
+
+else
+
+    print "x is larger"
+
+end
+
+if x == 10 then
+
+    print "x equals 10"
+
+end
+
+print "=== COMPLETE ==="

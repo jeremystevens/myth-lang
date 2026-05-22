@@ -1,0 +1,13 @@
+# greetings.my — a module that provides greeting helpers
+
+function say_hello name
+    print name
+end
+
+function say_goodbye name
+    print name
+end
+
+function get_greeting name
+    return name
+end

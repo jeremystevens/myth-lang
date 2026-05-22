@@ -1,0 +1,19 @@
+print "=== FOREACH TEST ==="
+
+numbers = [10, 20, 30, 40]
+
+foreach item in numbers
+
+    print item
+
+end
+
+names = ["Jeremy", "Alice", "Bob"]
+
+foreach person in names
+
+    print upper(person)
+
+end
+
+print "=== COMPLETE ==="

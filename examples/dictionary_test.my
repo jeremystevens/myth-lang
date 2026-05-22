@@ -1,0 +1,22 @@
+print "=== DICTIONARY TEST ==="
+
+person = {
+    "name": "Jeremy",
+    "age": 25,
+    "city": "Antioch"
+}
+
+print person
+
+print person["name"]
+print person["age"]
+print person["city"]
+
+scores = {
+    "math": 95,
+    "science": 88
+}
+
+print scores["math"]
+
+print "=== COMPLETE ==="

@@ -1,0 +1,24 @@
+print "=== BOOLEAN TEST ==="
+
+x = 10
+y = 20
+
+if x < y and y > 5 then
+
+    print "AND WORKS"
+
+end
+
+if x == 10 or y == 5 then
+
+    print "OR WORKS"
+
+end
+
+if not x == 5 then
+
+    print "NOT WORKS"
+
+end
+
+print "=== COMPLETE ==="

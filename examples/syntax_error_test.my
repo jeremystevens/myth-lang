@@ -1,0 +1,9 @@
+print "=== SYNTAX TEST ==="
+
+if x < 5
+
+    print "Hello"
+
+# Missing END here
+
+print "Done"

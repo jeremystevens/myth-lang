@@ -1,0 +1,24 @@
+print "=== NESTED DICTIONARY TEST ==="
+
+player = {
+    "name": "Jeremy",
+    "stats": {
+        "hp": 100,
+        "mana": 50
+    }
+}
+
+print player["name"]
+
+print player["stats"]["hp"]
+print player["stats"]["mana"]
+
+player["stats"]["hp"] = 25
+
+print player["stats"]["hp"]
+
+player["stats"]["mana"] = 999
+
+print player["stats"]["mana"]
+
+print "=== COMPLETE ==="

@@ -1,0 +1,19 @@
+# mathutils.my — a module with math helper functions
+
+function square n
+    return n * n
+end
+
+function double n
+    return n + n
+end
+
+function clamp val lo hi
+    if val < lo
+        return lo
+    end
+    if val > hi
+        return hi
+    end
+    return val
+end
