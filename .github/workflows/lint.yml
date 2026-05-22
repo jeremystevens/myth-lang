@@ -1,0 +1,32 @@
+name: Ruff Lint
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff Linting
+        run: |
+          ruff check lexer.py
+          ruff check parser.py
+          ruff check ast_nodes.py
+          ruff check ast_interpreter.py
+          ruff check stdlib.py
+          ruff check main.py
+          ruff check ide.py
