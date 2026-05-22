@@ -495,6 +495,50 @@ class ASTInterpreter:
                 1
             ),
 
+            # -------------------------
+            # JSON  (Phase 9)
+            # -------------------------
+
+            # parse_json(text)
+            #   Parse a JSON string into a MYTH
+            #   dict, list, string, integer,
+            #   boolean, or null.
+
+            "parse_json": (
+                self.builtin_parse_json,
+                1
+            ),
+
+            # to_json(value)
+            # to_json(value, pretty)
+            #   Serialize a MYTH value to a JSON
+            #   string.  Optional second argument
+            #   enables pretty-printing.
+
+            "to_json": (
+                self.builtin_to_json,
+                1,
+                2
+            ),
+
+            # save_json(path, value)
+            #   Serialize value to JSON and write
+            #   it to path (sandbox rules apply).
+
+            "save_json": (
+                self.builtin_save_json,
+                2
+            ),
+
+            # load_json(path)
+            #   Read a JSON file and return the
+            #   parsed MYTH value.
+
+            "load_json": (
+                self.builtin_load_json,
+                1
+            ),
+
         }
 
     # -------------------------
@@ -1922,6 +1966,135 @@ class ASTInterpreter:
             raise MyLangRuntimeError(
                 f"delete_file(): cannot delete "
                 f"'{args[0]}': {e}"
+            )
+
+    # -------------------------
+    # JSON BUILTINS  (Phase 9)
+    # -------------------------
+
+    def builtin_parse_json(self, args):
+        """
+        parse_json(text)
+        Parse a JSON string into a native MYTH value.
+        """
+
+        from json_parser import parse_json, JSONParseError
+
+        if not isinstance(args[0], str):
+            raise MyLangRuntimeError(
+                f"parse_json() expects STRING, "
+                f"got {self.type_name(args[0])}"
+            )
+
+        try:
+            return parse_json(args[0])
+
+        except JSONParseError as e:
+            raise MyLangRuntimeError(
+                f"parse_json(): {e.message} "
+                f"(line {e.line}, col {e.column})"
+            )
+
+        except Exception as e:
+            raise MyLangRuntimeError(
+                f"parse_json(): {e}"
+            )
+
+    def builtin_to_json(self, args):
+        """
+        to_json(value)
+        to_json(value, pretty)
+        Serialize a MYTH value to a JSON string.
+        """
+
+        from json_serializer import to_json, SerializationError
+
+        value  = args[0]
+        pretty = bool(args[1]) if len(args) > 1 else False
+
+        try:
+            return to_json(value, pretty=pretty)
+
+        except SerializationError as e:
+            raise MyLangRuntimeError(
+                f"to_json(): {e.message}"
+            )
+
+        except Exception as e:
+            raise MyLangRuntimeError(
+                f"to_json(): {e}"
+            )
+
+    def builtin_save_json(self, args):
+        """
+        save_json(path, value)
+        Serialize value to JSON and write to path.
+        Sandbox rules apply (same as write_file).
+        """
+
+        from json_serializer import to_json, SerializationError
+
+        raw_path = args[0]
+        value    = args[1]
+        path     = self._resolve_file_path(raw_path)
+
+        try:
+            json_text = to_json(value, pretty=True)
+
+        except SerializationError as e:
+            raise MyLangRuntimeError(
+                f"save_json(): {e.message}"
+            )
+
+        try:
+            parent = os.path.dirname(path)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(json_text)
+            return True
+
+        except OSError as e:
+            raise MyLangRuntimeError(
+                f"save_json(): cannot write "
+                f"'{raw_path}': {e}"
+            )
+
+    def builtin_load_json(self, args):
+        """
+        load_json(path)
+        Read a JSON file and return the parsed MYTH value.
+        Sandbox rules apply (same as read_file).
+        """
+
+        from json_parser import parse_json, JSONParseError
+
+        raw_path = args[0]
+        path     = self._resolve_file_path(raw_path)
+
+        if not os.path.isfile(path):
+            raise MyLangRuntimeError(
+                f"load_json(): file not found: "
+                f"'{raw_path}'"
+            )
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                text = f.read()
+
+        except OSError as e:
+            raise MyLangRuntimeError(
+                f"load_json(): cannot read "
+                f"'{raw_path}': {e}"
+            )
+
+        try:
+            return parse_json(text)
+
+        except JSONParseError as e:
+            raise MyLangRuntimeError(
+                f"load_json(): JSON error in '{raw_path}': "
+                f"{e.message} (line {e.line})"
             )
 
     def resolve_collection_reference(

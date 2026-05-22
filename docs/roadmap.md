@@ -58,6 +58,9 @@ This roadmap tracks what has been completed and what is planned. Items are group
 | Constructors (`init` block with `this` binding) | v0.9.0 |
 | Object mutation (`this.hp = this.hp - n`, `p.hp = 50`) | v0.9.0 |
 | `type_of(obj)` returns class name | v0.9.0 |
+| JSON parsing — `parse_json(text)` | v1.4.0 |
+| JSON serialization — `to_json(value)`, `to_json(value, pretty)` | v1.4.0 |
+| JSON file persistence — `save_json(path, value)`, `load_json(path)` | v1.4.0 |
 | Objects storable in lists and dictionaries | v0.9.0 |
 
 ### 🔲 Planned — Language
@@ -92,6 +95,7 @@ This roadmap tracks what has been completed and what is planned. Items are group
 | Type Conversion | to_int, to_str, to_bool, type_of |
 | I/O | input |
 | File I/O | read_file, write_file, append_file, file_exists, delete_file |
+| JSON | parse_json, to_json, save_json, load_json |
 
 ### 🔲 Planned — Standard Library
 

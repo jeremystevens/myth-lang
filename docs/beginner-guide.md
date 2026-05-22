@@ -568,3 +568,80 @@ done = false
 ```
 
 They work anywhere a value is expected — in variables, function arguments, return statements, and conditions.
+
+---
+
+## Working with JSON
+
+*Added in v1.4.0*
+
+JSON is the standard format for storing and exchanging structured data. MYTH Lang has built-in support for reading and writing JSON.
+
+### Converting Data to JSON
+
+Use `to_json()` to turn any MYTH value into a JSON string:
+
+```
+player = {"name": "Jeremy", "hp": 100, "active": true}
+
+compact = to_json(player)
+print compact
+# {"name": "Jeremy", "hp": 100, "active": true}
+
+pretty = to_json(player, true)
+print pretty
+# {
+#   "name": "Jeremy",
+#   "hp": 100,
+#   "active": true
+# }
+```
+
+### Parsing JSON
+
+Use `parse_json()` to turn a JSON string back into MYTH data:
+
+```
+json_text = to_json({"score": 99, "level": 5})
+data      = parse_json(json_text)
+
+print data["score"]   # 99
+print data["level"]   # 5
+```
+
+### Saving and Loading JSON Files
+
+Use `save_json()` and `load_json()` to persist data between sessions:
+
+```
+# Save a configuration file
+config = {"fullscreen": false, "volume": 80, "theme": "dark"}
+save_json("config.json", config)
+
+# Load it back later
+loaded = load_json("config.json")
+print loaded["theme"]   # dark
+print loaded["volume"]  # 80
+```
+
+### Real Example — Game Save System
+
+```
+# Build a game state
+save_data = {
+    "player": "Alice",
+    "level":  3,
+    "hp":     75,
+    "items":  ["sword", "shield", "potion"]
+}
+
+# Save it
+save_json("savegame.json", save_data)
+
+# Load it next time
+loaded = load_json("savegame.json")
+print loaded["player"]
+print length(loaded["items"])
+```
+
+All JSON files follow the same sandbox rules as regular file I/O — paths are resolved relative to the running script.

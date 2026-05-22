@@ -673,3 +673,65 @@ They can be used in any expression context, stored in variables, and returned fr
 | Class inheritance | Planned |
 | `!=` inequality operator | Planned |
 | Inline comments | Not supported |
+
+---
+
+## JSON Serialization (Phase 9)
+
+*Added in v1.4.0*
+
+### `parse_json(text)`
+
+Parses a JSON string and returns the equivalent MYTH value.
+
+```
+data = to_json({"name": "Jeremy", "hp": 100})
+obj  = parse_json(data)
+print obj["name"]   # Jeremy
+```
+
+JSON → MYTH type mappings:
+
+| JSON | MYTH |
+|:---|:---|
+| `{}` object | `dict` |
+| `[]` array | `list` |
+| string | `string` |
+| integer | `INTEGER` |
+| `true` / `false` | `BOOLEAN` |
+| `null` | `null` (None) |
+
+Raises a runtime error with line and column information on malformed JSON.
+
+### `to_json(value)`  /  `to_json(value, pretty)`
+
+Serializes a MYTH value to a JSON string.
+
+```
+player   = {"name": "Knight", "hp": 100}
+compact  = to_json(player)
+pretty   = to_json(player, true)
+```
+
+- `pretty=true` adds 2-space indentation
+- `MyLangObject` instances are serialized as `{"__class__": "ClassName", ...properties}`
+- Circular references raise a runtime error
+- Non-serializable types (namespaces) raise a runtime error
+
+### `save_json(path, value)`
+
+Serialize a value to JSON and write it to a file. Sandbox rules apply.
+
+```
+config = {"theme": "dark", "volume": 80}
+save_json("config.json", config)
+```
+
+### `load_json(path)`
+
+Read a JSON file and return the parsed MYTH value. Sandbox rules apply.
+
+```
+config = load_json("config.json")
+print config["theme"]
+```

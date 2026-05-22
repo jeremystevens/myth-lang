@@ -387,3 +387,57 @@ All notable changes to MyLang are documented here.
 - **`VM._make_error()`** — new method; walks the current call stack, looks up each frame's source location from its chunk's `SourceMap`, and constructs a `VMRuntimeError` with one `VMTraceFrame` per call frame
 - **`VM._run()` updated** — updates `_current_line`/`_current_file` before each dispatch; wraps handler calls in `try/except` to catch all errors and re-raise as `VMRuntimeError` with source context
 - **`VM.load_source()`** — new public method to cache source text for traceback display
+
+---
+
+## v1.4.0
+
+### Phase 9: Serialization & Data Formats
+
+#### `json_parser.py` (new file — 435 lines)
+
+- **`JSONParseError`** — exception class with `message`, `line` (1-based), and `column` (1-based) attributes; `format()` method returns a boxed human-readable error display
+- **`_JSONLexer`** — tokenises raw JSON text into `_Token` objects; tracks line and column throughout; token kinds: `LBRACE`, `RBRACE`, `LBRACKET`, `RBRACKET`, `COLON`, `COMMA`, `STRING`, `NUMBER`, `BOOL`, `NULL`, `EOF`
+- **`_JSONParser`** — recursive descent parser over the token list; produces native Python/MYTH values; methods: `_parse_value()`, `_parse_object()`, `_parse_array()`
+- **`parse_json(text)`** — public API; converts JSON text to MYTH runtime structures; raises `JSONParseError` with line/column on malformed input
+- Full escape sequence support: `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`, `\uXXXX` unicode escapes
+- Trailing comma detection with clear error messages
+- Whole-number floats (e.g. `3.0`) coerced to `int` for MYTH compatibility
+- Empty string and non-string input rejected with descriptive errors
+
+**JSON → MYTH type mappings:**
+
+| JSON | MYTH |
+|:---|:---|
+| object `{}` | `dict` |
+| array `[]` | `list` |
+| string | `str` |
+| integer | `int` |
+| float (whole) | `int` |
+| float (fractional) | `float` |
+| `true` | `True` |
+| `false` | `False` |
+| `null` | `None` |
+
+#### `json_serializer.py` (new file — 254 lines)
+
+- **`SerializationError`** — exception class with `message` attribute; `format()` returns a boxed error display
+- **`_Serializer`** — internal serializer class; tracks seen object `id()`s for circular reference detection; supports `pretty=True` with 2-space indentation
+- **`to_json(value, pretty=False)`** — public API; converts MYTH runtime value to JSON string
+- Supports: `dict`, `list`, `str`, `int`, `float`, `bool`, `None`, `MyLangObject` (serialized as `{"__class__": "ClassName", ...properties}`)
+- **Circular reference detection** — tracks all `dict`, `list`, and `MyLangObject` ids; raises `SerializationError` with "Circular reference detected" on cycles
+- **String escaping** — handles `"`, `\`, and all control characters including `\uXXXX` for Unicode below 0x20
+- **`MyLangNamespace` rejection** — raises `SerializationError` with a descriptive message
+- **Non-string key detection** — raises `SerializationError` for dicts with non-string keys
+- **Pretty format** — 2-space indentation, one entry per line, matching standard JSON formatting tools
+
+#### `ast_interpreter.py` — 4 new built-in functions
+
+- **`parse_json(text)`** — calls `json_parser.parse_json()`; wraps `JSONParseError` as `MyLangRuntimeError` with line/column context; validates input is STRING
+- **`to_json(value)`** / **`to_json(value, pretty)`** — variadic (1–2 args); calls `json_serializer.to_json()`; wraps `SerializationError` as `MyLangRuntimeError`
+- **`save_json(path, value)`** — serializes value to pretty JSON and writes to path; uses the existing `_resolve_file_path()` sandbox; creates intermediate directories automatically
+- **`load_json(path)`** — reads a file using the existing sandbox, then parses with `json_parser.parse_json()`; raises `MyLangRuntimeError` with filename and line number on parse failure
+
+#### New example file: `examples/json_test.my`
+
+Covers: `to_json` (compact and pretty), `parse_json` round-trip, nested data structures, `save_json`/`load_json` with file persistence, nested `save_json`/`load_json` round-trip.
