@@ -4,7 +4,91 @@ All notable changes to MyLang are documented here.
 
 ---
 
-## v0.9.0 — Current
+## v1.1.0 — Current
+
+### Language Runtime — Phase 7: Advanced Runtime Features
+
+#### Runtime Optimisation (`ast_interpreter.py`)
+
+- **Type-keyed fast-path dispatch** — profiling showed `isinstance()` was responsible for ~41% of interpreter CPU time, being called ~8 times per `evaluate()` invocation; replaced cascading `isinstance` checks for the five most common node types (`NumberNode`, `StringNode`, `VariableNode`, `BinaryOperationNode`, `CompareNode`) with `type(node) is NodeType` comparisons at the top of `evaluate()`, reducing overhead significantly on all inner-loop workloads
+
+#### Constant Folding (`optimizer.py` — new file)
+
+- **`ASTOptimiser` class** — single-pass AST rewriter that runs between the parser and the interpreter, pre-evaluating pure constant expressions so they are never re-evaluated at runtime
+- **Arithmetic folding** — `BinaryOperationNode(NumberNode(2), '*', NumberNode(3))` → `NumberNode(6)` at parse time
+- **String concat folding** — `"Hello " + "World"` → `StringNode("Hello World")` at parse time
+- **Chained folding** — `10 + 5 + 2` folds left-to-right across the entire chain → `NumberNode(17)`
+- **Comparison folding** — `1 == 1` → `NumberNode(True)`, `5 > 10` → `NumberNode(False)`
+- **Unary NOT folding** — `not false` → `NumberNode(True)`
+- **Short-circuit logical folding** — `true and X` → `X`, `false and X` → `False`, `true or X` → `True`, `false or X` → `X`
+- **Dead branch elimination** — `if true` discards the false branch entirely; `if false` discards the true branch; reduces the node list the interpreter ever sees
+- **`ASTOptimiser.report()`** — returns a summary string of nodes visited, binary ops folded, comparisons folded, and dead branches cut
+- Optimiser is non-destructive — always returns a new node list, never mutates the original AST
+
+#### Bytecode Compiler (`compiler.py` — new file)
+
+- **`Compiler` class** — walks a MyLang AST and emits a flat `Chunk` of `Instruction` objects; does not execute any code
+- **`Instruction` dataclass** — holds `opcode`, `operand`, and `line` number
+- **`Chunk` class** — a compiled execution unit with an instruction list, sub-chunks for function/method bodies, and `disassemble()` for human-readable output
+- **Complete instruction set** covering: stack operations (`PUSH_INT`, `PUSH_STR`, `PUSH_BOOL`, `PUSH_NULL`, `POP`, `DUP`), variables (`LOAD_VAR`, `STORE_VAR`), arithmetic (`ADD`, `SUB`, `MUL`, `DIV`, `MOD`), comparisons (`EQ`, `GT`, `LT`, `LE`, `GE`, `NE`), logic (`NOT`, `NEG`), control flow (`JUMP`, `JUMP_IF_FALSE`, `JUMP_IF_TRUE`), functions (`CALL`, `CALL_BUILTIN`, `RETURN`, `MAKE_FUNCTION`), classes (`MAKE_CLASS`, `CALL_METHOD`, `LOAD_ATTR`, `STORE_ATTR`), collections (`BUILD_LIST`, `BUILD_DICT`, `INDEX_GET`, `INDEX_SET`), modules (`IMPORT`, `FROM_IMPORT`, `EXPORT`), and output (`PRINT`, `HALT`)
+- **Back-patching** — `JUMP*` instructions are emitted with placeholder targets then patched once the target offset is known; enables correct `if/else` and loop compilation in a single pass
+- **Sub-chunk architecture** — each function and method body compiles into its own named `Chunk`, stored in the parent chunk's `sub_chunks` dict
+
+#### Optional VM Architecture (`vm.py` — new file)
+
+- **`VM` class** — a working stack-based virtual machine that executes compiled `Chunk`s
+- **`Frame` class** — represents one call frame with its own `Chunk`, program counter, and local variable dict
+- **`VMObject`** — VM-native object instance (mirrors `MyLangObject`)
+- **`VMNamespace`** — VM-native module namespace (mirrors `MyLangNamespace`)
+- **Opcode dispatch table** — opcodes are dispatched via a `_dispatch` dict built automatically from `_op_*` methods; eliminates `isinstance` chains and makes adding new opcodes trivial
+- **Full built-in function table** — all 40+ stdlib functions implemented as lambdas inside the VM
+- **`_run_until_return()`** — helper for synchronous constructor execution during class instantiation
+- The VM is an optional execution backend; the AST interpreter remains the default executor
+
+#### Garbage Collection Planning (`docs/gc_plan.md` — new file)
+
+- **GC design document** — full analysis of the current memory model, identified weaknesses (scope leaks, no allocation visibility), and a concrete implementation plan
+- **Proposed strategy: scope-aware reference tracking** — generation counter on `MyLangObject`, freed when creating scope exits; mark-and-sweep pass handles object graph cycles
+- **`gc_stats()` built-in sketched** — planned function to expose allocation counts, live object count, and current scope depth for debugging and profiling
+- Marked as low priority until a native VM becomes the default executor
+
+#### `main.py` updates
+
+- **`ASTOptimiser` wired in** — runs automatically between parse and execution on every script
+- **`--bytecode` flag** — prints the disassembled chunk for the script before running it
+- **`--no-opt` flag** — skips the optimiser for debugging purposes
+- **Version bumped** to `1.1.0`
+- Default script changed from `dictionary_builtin_test.my` to `regression_test.my`
+- Token and AST debug output removed from default run; now only shown when explicitly requested
+
+---
+
+## v1.0.0
+
+### Language Runtime — Phase 6: Namespaces & Modules
+
+- **`module.function()` syntax** — `import utils` now creates a `MyLangNamespace` stored under the module alias in the caller's variables; functions are accessed via `utils.double(x)` rather than being merged into the global scope
+- **`MyLangNamespace` runtime class** — new type wrapping a module alias and its exported names dict; accessible via dot notation through the existing `PropertyAccessNode` / `MethodCallNode` evaluation paths
+- **Namespace isolation** — each imported module now runs in its own child interpreter with its own function dict; nothing pollutes the caller's global scope automatically
+- **`export` keyword** — marks a name as part of the module's public API; only exported names are accessible via namespace dot notation; modules with no `export` statements export everything (backwards compatible)
+- **`ExportNode`** — new AST node representing an `export name` statement
+- **`EXPORT` lexer token** — triggered by lines beginning with `export `
+- **`from X import Y` syntax** — selective import; brings named exports directly into the caller's scope without creating a namespace object
+- **`from X import Y, Z` syntax** — multiple names can be selectively imported in one statement
+- **`FromImportNode`** — new AST node holding the module path and list of names to import
+- **`FROM_IMPORT` lexer token** — triggered by `from ... import ...` lines
+- **`_apply_selective()`** — new interpreter method resolving selective imports against a namespace and registering names into `self.functions`
+- **`_namespaces` dict** — new interpreter state field mapping module alias → `MyLangNamespace`; shared with child interpreters so nested imports and circular guards work correctly
+- **`_export_names` list** — new interpreter state field; populated by `ExportNode` execution; used by `load_module()` to build the public API
+- **Circular import protection fixed** — `_import_cache` is now correctly shared across all child interpreters regardless of whether they were created in namespace mode or legacy mode; prevents infinite recursion on mutually-importing modules
+- **`load_module()` rewritten** — new parameters: `namespace_mode` (default `True`) and `selective_names`; supports all three import modes (namespace, selective, legacy)
+- **`type_name()` updated** — `MyLangNamespace` returns `"module:name"` from `type_of()`
+- **`import_test.my` updated** — rewritten to use Phase 6 namespace syntax throughout
+- **New example files** — `mathlib.my` (with explicit exports), `greetlib.my` (no exports — all public), `namespace_test.my`
+
+---
+
+## v0.9.0
 
 ### Language Runtime — Phase 5: Object System / Classes
 
