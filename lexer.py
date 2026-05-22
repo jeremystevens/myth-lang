@@ -140,6 +140,16 @@ class Lexer:
                     line[3:].strip()
                 )
 
+                # Strip optional trailing 'then'
+                # keyword so that both:
+                #   if x < y then
+                #   if x < y
+                # produce the same token value.
+                if condition.endswith(" then"):
+                    condition = condition[:-5].strip()
+                elif condition == "then":
+                    condition = ""
+
                 self.tokens.append(
                     Token(
                         "IF",
@@ -165,6 +175,11 @@ class Lexer:
                 condition = (
                     line[6:].strip()
                 )
+
+                # Strip optional trailing 'then'
+                # for consistency with IF.
+                if condition.endswith(" then"):
+                    condition = condition[:-5].strip()
 
                 self.tokens.append(
                     Token(
