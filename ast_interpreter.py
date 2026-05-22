@@ -1,3 +1,4 @@
+# ruff: noqa: F403, F405
 from ast_nodes import *
 
 from runtime_error import (
