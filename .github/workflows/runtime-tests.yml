@@ -1,0 +1,29 @@
+name: Runtime Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  runtime-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify Python Version
+        run: python --version
+
+      - name: Run Example Programs
+        run: |
+          python main.py examples/boolean_test.my
+          python main.py examples/function_test.my
+          python main.py examples/dictionary_test.my
+          python main.py examples/module_test.my
