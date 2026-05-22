@@ -1,6 +1,6 @@
 # MyLang Roadmap
 
-Current version: **0.8.0**
+Current version: **0.9.0**
 
 This roadmap tracks what has been completed and what is planned. Items are grouped by category and marked with their current status.
 
@@ -45,6 +45,20 @@ This roadmap tracks what has been completed and what is planned. Items are group
 | Module import chain tracing | v0.8.0 |
 | Syntax error caret display | v0.8.0 |
 | Debug hooks for IDE integration (`set_debug_controller`) | v0.2.0 |
+| `then` keyword support in `if` / `while` conditions | v0.9.0 |
+| `true` / `false` boolean literals | v0.9.0 |
+| Left-associative binary expression chaining (`a + b + c`) | v0.9.0 |
+| Parentheses required for function calls — BASIC-style calls rejected with helpful error | v0.9.0 |
+| `print(...)` accepted as alias for `print` keyword | v0.9.0 |
+| Return propagation through `if`, `while`, `for`, `foreach` blocks | v0.9.0 |
+| **Object system — Classes** (`class / init / method / end`) | v0.9.0 |
+| Object instantiation (`p = Player("Jeremy", 100)`) | v0.9.0 |
+| Instance properties (`this.name`, `p.hp`) | v0.9.0 |
+| Instance methods (`p.take_damage(30)`) | v0.9.0 |
+| Constructors (`init` block with `this` binding) | v0.9.0 |
+| Object mutation (`this.hp = this.hp - n`, `p.hp = 50`) | v0.9.0 |
+| `type_of(obj)` returns class name | v0.9.0 |
+| Objects storable in lists and dictionaries | v0.9.0 |
 
 ### 🔲 Planned — Language
 
@@ -56,10 +70,12 @@ This roadmap tracks what has been completed and what is planned. Items are group
 | Float / decimal number support | Medium | Division currently always produces an integer result |
 | String indexing (`s[0]`) | Medium | Only lists and dicts support index access |
 | Error handling — `try / catch / end` | Medium | No way to recover from runtime errors in user code |
-| `not=` or `!=` inequality operator | Low | Currently must use `not (a == b)` |
+| Inheritance (`class Dog extends Animal`) | Medium | Single-level class hierarchy |
+| `!=` inequality operator | Low | Currently must use `not (a == b)` |
 | Multi-line expressions | Low | All statements must fit on one line |
 | Lambda / anonymous functions | Low | Functions require a name |
 | String interpolation | Low | Currently use `+` concatenation with `to_str()` |
+| Class `toString()` / `__repr__` equivalent | Low | Custom object string representation |
 
 ---
 
@@ -111,12 +127,12 @@ This roadmap tracks what has been completed and what is planned. Items are group
 
 | Feature | Description |
 |:---|:---|
+| Class-aware autocomplete | Suggest properties and methods after `obj.` |
 | AI-assisted suggestions | Context-aware completions beyond the symbol table |
 | Multi-file project workspace | Tabbed editor for multiple open files simultaneously |
 | Git integration | Show changed lines in the gutter; basic commit/diff UI |
 | Cross-platform packaging | One-click installer for Windows/macOS/Linux |
 | Search across files | Find/replace across all `.my` files in the project |
-| `repeat` loop syntax | Restore the removed `repeat N ... end` convenience syntax |
 | Settings panel | Persistent user preferences (font size, tab width, default theme) |
 | REPL upgrade | Connect the REPL to the Phase 4 language services |
 
@@ -172,4 +188,4 @@ This roadmap tracks what has been completed and what is planned. Items are group
 | v0.6.0 | Standard library expansion (40+ built-ins) |
 | v0.7.0 | File I/O, escape sequences |
 | v0.8.0 | Error system expansion — structured tracebacks, call stack, import tracing |
-
+| v0.9.0 | Object system — classes, instances, properties, methods, constructors, `this` |

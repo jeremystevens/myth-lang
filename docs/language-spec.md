@@ -508,3 +508,168 @@ The following features are planned but not yet implemented:
 | `repeat N` loop | Removed — use `for i = 1 to N` |
 | Inline comments | Not supported |
 
+
+---
+
+## Classes and Objects
+
+*Added in v0.9.0*
+
+### Class Definition
+
+```
+class ClassName
+    init param1 param2
+        this.param1 = param1
+        this.param2 = param2
+    end
+
+    method method_name arg1
+        this.x = this.x + arg1
+    end
+
+    method no_args()
+        return this.x
+    end
+end
+```
+
+- `class` opens the definition, `end` closes it
+- `init` defines the constructor — its parameters are the arguments passed when creating an instance
+- `method` defines an instance method — zero-parameter methods can write `method name()` with the `()` stripped automatically
+- `this` is bound to the current instance inside every `init` and `method` body
+- Properties are created by assigning to `this.name` — there is no declaration syntax
+
+### Instantiation
+
+```
+p = Player("Jeremy", 100)
+```
+
+Calling a class name like a function creates a new instance, runs the `init` body with `this` bound to that instance, and returns the object.
+
+### Property Access
+
+```
+print p.name
+print p.hp
+```
+
+### Property Assignment (from outside)
+
+```
+p.hp = 50
+```
+
+### Method Calls
+
+```
+p.take_damage(30)
+status = p.get_status()
+```
+
+Standalone method calls (`p.take_damage(30)` as a statement) and method calls in expressions (`result = p.get_status()`) both work.
+
+### `this` Reference
+
+Inside `init` and `method` bodies, `this` refers to the current instance. Properties are read and written through `this`:
+
+```
+method heal amount
+    this.hp = this.hp + amount
+end
+```
+
+### `type_of()` with Objects
+
+```
+print type_of(p)   # → "Player"
+```
+
+`type_of()` returns the class name for object instances.
+
+### Objects in Collections
+
+Objects can be stored in lists and dictionaries like any other value:
+
+```
+party = [Player("Alice", 80), Player("Bob", 100)]
+first_player = first(party)
+print first_player.name
+```
+
+### Full Example
+
+```
+class Player
+    init name hp
+        this.name = name
+        this.hp   = hp
+        this.alive = true
+    end
+
+    method take_damage amount
+        this.hp = this.hp - amount
+        if this.hp < 1 then
+            this.alive = false
+        end
+    end
+
+    method heal amount
+        this.hp = this.hp + amount
+    end
+
+    method get_status()
+        return this.name + " HP:" + to_str(this.hp)
+    end
+
+    method is_alive()
+        return this.alive
+    end
+end
+
+p = Player("Jeremy", 100)
+
+print p.name          # Jeremy
+print p.hp            # 100
+p.take_damage(30)
+print p.hp            # 70
+print p.get_status()  # Jeremy HP:70
+print p.is_alive()    # True
+print type_of(p)      # Player
+```
+
+---
+
+## Boolean Literals
+
+*Clarified in v0.9.0*
+
+`true` and `false` are language keywords that produce boolean values:
+
+```
+alive = true
+dead  = false
+
+if alive then
+    print "Still going"
+end
+```
+
+They can be used in any expression context, stored in variables, and returned from functions.
+
+---
+
+## Updated Known Limitations
+
+| Feature | Status |
+|:---|:---|
+| `>=` and `<=` comparisons | Planned |
+| `elif` chains | Planned |
+| `break` / `continue` in loops | Planned |
+| Float / decimal numbers | Planned |
+| String indexing | Planned |
+| Error handling (`try / catch`) | Planned |
+| Class inheritance | Planned |
+| `!=` inequality operator | Planned |
+| Inline comments | Not supported |

@@ -10,6 +10,31 @@ import random
 import os
 
 
+# ===========================================================================
+# PHASE 5 — MYLANG OBJECT RUNTIME
+# ===========================================================================
+
+class MyLangObject:
+    """
+    A runtime instance of a MyLang class.
+
+    Attributes
+    ----------
+    class_def   : ClassNode  — the class this was instantiated from
+    properties  : dict       — instance property bag  (this.x, this.hp …)
+    """
+
+    def __init__(self, class_def):
+        self.class_def  = class_def
+        self.properties = {}
+
+    def __repr__(self):
+        return (
+            f"<{self.class_def.name} "
+            f"{self.properties}>"
+        )
+
+
 class ASTInterpreter:
 
     def __init__(
@@ -668,7 +693,104 @@ class ASTInterpreter:
         if isinstance(value, bool):
             return "BOOLEAN"
 
+        if isinstance(value, MyLangObject):
+            return value.class_def.name
+
         return type(value).__name__
+
+    # -------------------------
+    # PHASE 5 — METHOD DISPATCH
+    # -------------------------
+
+    def _call_method(
+        self,
+        obj_expr,
+        method_name,
+        args,
+        line=None
+    ):
+        """
+        Evaluate obj_expr to a MyLangObject, look up
+        method_name in its class definition, then execute
+        the method body with 'this' bound to the instance
+        and the method's parameters in scope.
+        """
+
+        obj = self.evaluate(obj_expr)
+
+        if not isinstance(obj, MyLangObject):
+
+            raise MyLangRuntimeError(
+                f"Cannot call method '{method_name}' on "
+                f"{self.type_name(obj)} — expected an object",
+                line
+            )
+
+        class_def = obj.class_def
+
+        if method_name not in class_def.methods:
+
+            raise MyLangRuntimeError(
+                f"Class '{class_def.name}' has no method "
+                f"'{method_name}'",
+                line
+            )
+
+        method = class_def.methods[method_name]
+
+        # Evaluate arguments
+        evaluated_args = [
+            self.evaluate(a) for a in args
+        ]
+
+        if len(evaluated_args) != len(method.params):
+
+            raise MyLangRuntimeError(
+                f"{class_def.name}.{method_name}() expected "
+                f"{len(method.params)} argument(s) "
+                f"but got {len(evaluated_args)}",
+                line
+            )
+
+        # Execute method body with 'this' + params in scope.
+        # Restore variables after the call.
+        old_vars = self.variables.copy()
+        old_return = self.return_value
+
+        self.variables["this"] = obj
+
+        for i, pname in enumerate(method.params):
+            self.variables[pname] = evaluated_args[i]
+
+        self.return_value = None
+
+        # Push call stack frame for Phase 4 tracing
+        frame_dict = {
+            "name":   f"{class_def.name}.{method_name}",
+            "line":   line or 0,
+            "locals": {"this": repr(obj)},
+            "params": {"this": repr(obj)},
+        }
+        self._call_stack.append(frame_dict)
+
+        try:
+            self.run(method.body)
+        except MyLangRuntimeError as e:
+            self._enrich_error(e)
+            raise
+        finally:
+            if self._call_stack:
+                self._call_stack.pop()
+
+        result = self.return_value
+
+        # Restore caller scope but keep any mutations
+        # to the object's properties (they live on the
+        # MyLangObject, not in self.variables).
+        self.variables  = old_vars
+        self.return_value = old_return
+
+        return result
 
     # -------------------------
     # BUILTINS
@@ -1914,6 +2036,45 @@ class ASTInterpreter:
                     node.line
                 )
 
+        # ── PHASE 5 — OBJECT SYSTEM ──────────────────────────────────
+
+        # PROPERTY ACCESS   obj.property
+        if isinstance(node, PropertyAccessNode):
+
+            obj = self.evaluate(node.obj_expr)
+
+            if not isinstance(obj, MyLangObject):
+
+                raise MyLangRuntimeError(
+                    f"Cannot access property on "
+                    f"{self.type_name(obj)} — "
+                    f"expected an object",
+                    node.line
+                )
+
+            prop = node.property_name
+
+            if prop not in obj.properties:
+
+                raise MyLangRuntimeError(
+                    f"Object of class "
+                    f"'{obj.class_def.name}' has "
+                    f"no property '{prop}'",
+                    node.line
+                )
+
+            return obj.properties[prop]
+
+        # METHOD CALL   obj.method(args)
+        if isinstance(node, MethodCallNode):
+
+            return self._call_method(
+                node.obj_expr,
+                node.method_name,
+                node.args,
+                node.line
+            )
+
         # UNKNOWN EXPRESSION
         raise MyLangRuntimeError(
             f"Unknown expression node: "
@@ -2001,6 +2162,46 @@ class ASTInterpreter:
             return builtin_function(
                 evaluated_args
             )
+
+        # ── PHASE 5: CLASS INSTANTIATION ─────────────────────────────
+        # When a name refers to a ClassNode, calling it creates a new
+        # MyLangObject instance and runs the constructor (init body)
+        # with 'this' bound to the fresh instance.
+
+        if name in self.functions and isinstance(
+            self.functions[name], ClassNode
+        ):
+
+            class_def = self.functions[name]
+            instance  = MyLangObject(class_def)
+
+            # Evaluate constructor arguments
+            evaluated_args = [
+                self.evaluate(a) for a in args
+            ]
+
+            if len(evaluated_args) != len(class_def.params):
+
+                raise MyLangRuntimeError(
+                    f"{name}() constructor expected "
+                    f"{len(class_def.params)} argument(s) "
+                    f"but got {len(evaluated_args)}",
+                    line
+                )
+
+            # Run the init body with 'this' bound
+            # and constructor params in scope.
+            old_vars = self.variables.copy()
+            self.variables["this"] = instance
+
+            for i, pname in enumerate(class_def.params):
+                self.variables[pname] = evaluated_args[i]
+
+            self.run(class_def.init_body)
+
+            self.variables = old_vars
+
+            return instance
 
         # USER FUNCTION CHECK
         if name not in self.functions:
@@ -2132,6 +2333,9 @@ class ASTInterpreter:
                         node.body
                     )
 
+                    if self.return_value is not None:
+                        return
+
             # FOR
             elif isinstance(node, ForNode):
 
@@ -2166,6 +2370,9 @@ class ASTInterpreter:
                     self.run(
                         node.body
                     )
+
+                    if self.return_value is not None:
+                        return
 
             # INDEX ASSIGN
             elif isinstance(
@@ -2275,6 +2482,10 @@ class ASTInterpreter:
                         node.false_body
                     )
 
+                # Propagate return if the branch returned
+                if self.return_value is not None:
+                    return
+
             # WHILE
             elif isinstance(node, WhileNode):
 
@@ -2286,11 +2497,51 @@ class ASTInterpreter:
                         node.body
                     )
 
+                    # Propagate return from inside while
+                    if self.return_value is not None:
+                        return
+
             # IMPORT
             elif isinstance(node, ImportNode):
 
                 self.load_module(
                     node.path,
+                    node.line
+                )
+
+            # ── PHASE 5 — OBJECT SYSTEM ──────────────────────────────
+
+            # CLASS DEFINITION
+            # Register the class so it can be
+            # instantiated by name like a function.
+            elif isinstance(node, ClassNode):
+
+                self.functions[node.name] = node
+
+            # PROPERTY ASSIGNMENT   obj.prop = value
+            elif isinstance(node, PropertyAssignNode):
+
+                obj = self.evaluate(node.obj_expr)
+
+                if not isinstance(obj, MyLangObject):
+
+                    raise MyLangRuntimeError(
+                        f"Cannot set property on "
+                        f"{self.type_name(obj)} — "
+                        f"expected an object",
+                        node.line
+                    )
+
+                value = self.evaluate(node.value)
+                obj.properties[node.property_name] = value
+
+            # STANDALONE METHOD CALL
+            elif isinstance(node, MethodCallNode):
+
+                self._call_method(
+                    node.obj_expr,
+                    node.method_name,
+                    node.args,
                     node.line
                 )
 

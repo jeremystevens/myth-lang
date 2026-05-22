@@ -5,6 +5,8 @@ from parser_error import (
     MyLangSyntaxError
 )
 
+import re
+
 
 class Parser:
 
@@ -273,8 +275,12 @@ class Parser:
                 line
             )
 
-        # NUMBER (positive integer)
-        if expr.isdigit():
+        # BOOLEAN LITERALS
+        if expr == "true":
+            return NumberNode(True, line)
+
+        if expr == "false":
+            return NumberNode(False, line)
 
             return NumberNode(
                 int(expr),
@@ -508,11 +514,112 @@ class Parser:
                 line
             )
 
+        # ── PHASE 5: obj.method(args)  and  obj.property ────────────
+        # Detect dot-notation before falling through to VariableNode.
+        # Pattern: anything.name(...)  or  anything.name
+        #
+        # We search for a '.' that is outside strings and brackets
+        # and not part of a float literal.
+
+        if "." in expr:
+
+            dot_pos = self._find_dot_outside(expr)
+
+            if dot_pos is not None:
+
+                obj_part  = expr[:dot_pos].strip()
+                rest      = expr[dot_pos+1:].strip()
+
+                # obj.method(args)
+                if "(" in rest and rest.endswith(")"):
+
+                    paren_pos = rest.index("(")
+                    mname     = rest[:paren_pos].strip()
+                    args_str  = rest[paren_pos+1:-1]
+
+                    # Only treat as method call if mname is identifier
+                    if re.match(
+                        r'^[A-Za-z_][A-Za-z0-9_]*$',
+                        mname
+                    ):
+
+                        raw_args = (
+                            self.split_arguments(args_str)
+                            if args_str.strip()
+                            else []
+                        )
+
+                        parsed_args = [
+                            self.parse_expression(a, line)
+                            for a in raw_args
+                        ]
+
+                        obj_expr = self.parse_primary(obj_part)
+
+                        return MethodCallNode(
+                            obj_expr,
+                            mname,
+                            parsed_args,
+                            line
+                        )
+
+                # obj.property
+                prop = rest.strip()
+
+                if re.match(
+                    r'^[A-Za-z_][A-Za-z0-9_]*$',
+                    prop
+                ):
+
+                    obj_expr = self.parse_primary(obj_part)
+
+                    return PropertyAccessNode(
+                        obj_expr,
+                        prop,
+                        line
+                    )
+
         # VARIABLE
         return VariableNode(
             expr,
             line
         )
+
+    # -------------------------
+    # DOT FINDER  (Phase 5)
+    # -------------------------
+
+    def _find_dot_outside(self, expr):
+        """
+        Return the position of the first '.' outside
+        strings and brackets — used for property /
+        method-call detection in parse_primary.
+        Returns None if no qualifying dot exists.
+        """
+
+        depth     = 0
+        in_string = False
+
+        for i, ch in enumerate(expr):
+
+            if ch == '"':
+                in_string = not in_string
+
+            elif not in_string:
+
+                if ch in "([{":
+                    depth += 1
+                elif ch in ")]}":
+                    depth -= 1
+                elif (
+                    ch == "."
+                    and depth == 0
+                    and i > 0
+                    and i < len(expr) - 1
+                ):
+                    return i
+
+        return None
 
     # -------------------------
     # MULTIPLICATION / DIVISION
@@ -982,7 +1089,163 @@ class Parser:
                 token.line
             )
 
+        # ── PHASE 5 — OBJECT SYSTEM ──────────────────────────────────
+
+        # CLASS DEFINITION
+        elif token.type == "CLASS":
+
+            return self.parse_class(token)
+
+        # PROPERTY ASSIGNMENT   obj.prop = value
+        elif token.type == "PROP_ASSIGN":
+
+            obj_name, prop_name, rhs = token.value
+
+            obj_expr = self.parse_expression(
+                obj_name,
+                token.line
+            )
+
+            value_expr = self.parse_expression(
+                rhs,
+                token.line
+            )
+
+            self.advance()
+
+            return PropertyAssignNode(
+                obj_expr,
+                prop_name,
+                value_expr,
+                token.line
+            )
+
+        # STANDALONE METHOD CALL   obj.method(args)
+        elif token.type == "METHOD_CALL":
+
+            obj_name, method_name, raw_args = token.value
+
+            obj_expr = self.parse_expression(
+                obj_name,
+                token.line
+            )
+
+            parsed_args = [
+                self.parse_expression(a, token.line)
+                for a in raw_args
+            ]
+
+            self.advance()
+
+            return MethodCallNode(
+                obj_expr,
+                method_name,
+                parsed_args,
+                token.line
+            )
+
         return None
+
+    # -------------------------
+    # CLASS PARSING
+    # -------------------------
+
+    def parse_class(self, class_token):
+        """
+        Parse a full class block:
+
+          class ClassName
+              init param1 param2
+                  this.x = param1
+              end
+
+              method do_thing arg
+                  ...
+              end
+          end
+        """
+
+        class_name = class_token.value
+        line       = class_token.line
+
+        self.advance()   # consume CLASS token
+
+        init_params = []
+        init_body   = []
+        methods     = {}   # name → FunctionNode
+
+        # Collect INIT and METHOD blocks until END
+        while self.current_token() is not None:
+
+            tok = self.current_token()
+
+            # Class-level END
+            if tok.type == "END":
+                self.advance()
+                break
+
+            # Constructor
+            elif tok.type == "INIT":
+
+                init_params = tok.value
+                self.advance()
+
+                # Parse constructor body until END
+                init_body = []
+
+                while self.current_token() is not None:
+
+                    inner = self.current_token()
+
+                    if inner.type == "END":
+                        self.advance()
+                        break
+
+                    stmt = self.parse_statement()
+
+                    if stmt is not None:
+                        init_body.append(stmt)
+
+            # Method definition
+            elif tok.type == "METHOD":
+
+                mname, mparams = tok.value
+                self.advance()
+
+                method_body = []
+
+                while self.current_token() is not None:
+
+                    inner = self.current_token()
+
+                    if inner.type == "END":
+                        self.advance()
+                        break
+
+                    stmt = self.parse_statement()
+
+                    if stmt is not None:
+                        method_body.append(stmt)
+
+                # Store as a FunctionNode with the method's params
+                methods[mname] = FunctionNode(
+                    mname,
+                    mparams,
+                    method_body,
+                    tok.line
+                )
+
+            else:
+                # Skip unexpected tokens inside class body
+                self.advance()
+
+        return ClassNode(
+            class_name,
+            init_params,
+            init_body,
+            methods,
+            line
+        )
 
     # -------------------------
     # MAIN PARSER

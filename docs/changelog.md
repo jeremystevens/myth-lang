@@ -4,7 +4,49 @@ All notable changes to MyLang are documented here.
 
 ---
 
-## v0.8.0 — Current
+## v0.9.0 — Current
+
+### Language Runtime — Phase 5: Object System / Classes
+
+- **`class / init / method / end` syntax** — full class definition support
+- **`ClassNode`** — new AST node representing a class definition (name, constructor params, init body, methods dict)
+- **`MethodCallNode`** — new AST node for `obj.method(args)` expressions
+- **`PropertyAccessNode`** — new AST node for `obj.property` read access
+- **`PropertyAssignNode`** — new AST node for `obj.property = value` and `this.property = value`
+- **`MyLangObject`** — new runtime class wrapping a `ClassNode` and an instance property dict
+- **`_call_method()`** — new interpreter method; binds `this`, runs method body, restores caller scope; fully integrated with Phase 4 call stack tracing
+- **Class instantiation** — calling a class name like a function (`Player("Jeremy", 100)`) creates a `MyLangObject` and runs the `init` body
+- **`this` reference** — inside `init` and `method` bodies, `this` refers to the current instance; properties are read and written via `this.name`
+- **Object mutation** — properties can be updated inside methods (`this.hp = this.hp - amount`) and from outside (`p.hp = 50`)
+- **`type_of(obj)`** returns the class name (e.g. `"Player"`) for object instances
+- **Objects in collections** — objects can be stored in lists and dictionaries
+- **`METHOD_CALL` lexer token** — standalone `obj.method(args)` lines on their own produce this token
+- **`PROP_ASSIGN` lexer token** — `obj.prop = value` lines produce this token
+- **`CLASS`, `INIT`, `METHOD` lexer tokens** — new token types for class block parsing
+
+### Parser Bug Fixes (shipped alongside Phase 5)
+
+- **`then` keyword stripping** — the lexer now strips the optional trailing `then` from `if` and `while` conditions; `if x < y then` and `if x < y` now produce identical token values and ASTs
+- **Boolean literals `true` / `false`** — now parsed as proper boolean values in `parse_primary`; previously fell through to `VariableNode` causing `Undefined variable: true` errors
+- **Left-associative binary expressions** — `find_operator_outside` now scans right-to-left so `a + b + c` produces `(a + b) + c` instead of `a + (b + c)`
+- **Function call name validation** — `parse_primary` now validates the function name is a plain identifier before treating an expression as a call; prevents `"rolled" + to_str` from being interpreted as a function name in chained string concatenation
+- **Return propagation inside control flow** — `return` inside `if`, `while`, `for`, and `foreach` blocks now correctly halts the enclosing function; previously the outer body continued executing after the return, overwriting the return value
+- **`_find_dot_outside()` helper** — new parser method finds the first `.` outside strings and brackets for property/method expression detection
+
+### Standardisation (shipped alongside Phase 5)
+
+- **Parentheses required for all function calls** — `greet "Jeremy"` now raises a clear `SyntaxError` with a suggestion: `greet("Jeremy")`; previously produced a generic `Unknown syntax` error
+- **`print(...)` style accepted** — `print("hello")` is now reclassified as a `PRINT` token so both `print "hello"` and `print("hello")` work identically
+- **BASIC-style call detection** — the lexer's `UNKNOWN` fallback now detects `identifier whitespace args` patterns and raises a specific error with the corrected parenthesized form
+- **`MyLangSyntaxError` now raised by lexer** — previously the lexer raised bare `Exception`; now always raises `MyLangSyntaxError` so errors feed into the Phase 4 traceback formatter
+
+### Lint / Code Quality
+
+- **`# ruff: noqa: F403, F405`** added to `ast_interpreter.py` and `parser.py` above the `from ast_nodes import *` wildcard import to suppress ruff F403/F405 lint errors on GitHub CI
+
+---
+
+## v0.8.0
 
 ### Language Runtime — Phase 4: Error System Expansion
 
@@ -187,4 +229,3 @@ All notable changes to MyLang are documented here.
 - `MyLangRuntimeError` and `MyLangSyntaxError` exception types
 - `main.py` CLI runner with `--script` argument support
 - REPL (`repl.py`)
-

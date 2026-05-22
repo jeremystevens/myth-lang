@@ -5,4 +5,4 @@ function greet name
 
 end
 
-greet ("Jeremy")
+greet "Jeremy"

@@ -1,0 +1,73 @@
+print "=== CLASS SYSTEM TEST ==="
+
+# ── Basic class with constructor and properties ─────────────
+class Player
+    init name hp
+        this.name = name
+        this.hp = hp
+        this.alive = true
+    end
+
+    method take_damage amount
+        this.hp = this.hp - amount
+        if this.hp < 1 then
+            this.alive = false
+        end
+    end
+
+    method heal amount
+        this.hp = this.hp + amount
+    end
+
+    method get_status()
+        return this.name + " HP:" + to_str(this.hp)
+    end
+
+    method is_alive()
+        return this.alive
+    end
+end
+
+# ── Instantiate ─────────────────────────────────────────────
+p = Player("Jeremy", 100)
+
+print p.name
+print p.hp
+print p.alive
+
+# ── Method calls ─────────────────────────────────────────────
+p.take_damage(30)
+print p.hp
+
+p.heal(10)
+print p.hp
+
+# ── Method with return value ──────────────────────────────────
+status = p.get_status()
+print status
+
+# ── Boolean property ──────────────────────────────────────────
+print p.is_alive()
+
+# ── Object mutation — take lethal damage ──────────────────────
+p.take_damage(999)
+print p.hp
+print p.is_alive()
+
+# ── Multiple instances ────────────────────────────────────────
+a = Player("Alice", 80)
+b = Player("Bob", 120)
+
+print a.name
+print b.name
+
+a.take_damage(20)
+b.take_damage(10)
+
+print a.hp
+print b.hp
+
+# ── type_of ───────────────────────────────────────────────────
+print type_of(p)
+
+print "=== COMPLETE ==="

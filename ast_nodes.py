@@ -457,3 +457,160 @@ class ImportNode:
         return (
             f'ImportNode("{self.path}")'
         )
+
+
+# ===========================================================================
+# PHASE 5 — OBJECT SYSTEM
+# ===========================================================================
+
+
+class ClassNode:
+    """
+    Represents a class definition.
+
+      class ClassName
+          init param1 param2
+              this.x = param1
+          end
+          method do_something arg
+              ...
+          end
+      end
+
+    Attributes
+    ----------
+    name        : str   — the class name
+    params      : list  — constructor parameter names (from `init`)
+    init_body   : list  — AST nodes for the constructor body
+    methods     : dict  — name → FunctionNode for each method
+    line        : int
+    """
+
+    def __init__(
+        self,
+        name,
+        params,
+        init_body,
+        methods,
+        line=None,
+    ):
+
+        self.name      = name
+        self.params    = params
+        self.init_body = init_body
+        self.methods   = methods
+        self.line      = line
+
+    def __repr__(self):
+
+        return (
+            f"ClassNode("
+            f"name={self.name}, "
+            f"params={self.params}, "
+            f"methods={list(self.methods.keys())})"
+        )
+
+
+class MethodCallNode:
+    """
+    Represents calling a method on an object.
+
+      obj.method_name(arg1, arg2)
+
+    Attributes
+    ----------
+    obj_expr    : AST node  — the object expression
+    method_name : str
+    args        : list      — argument AST nodes
+    line        : int
+    """
+
+    def __init__(
+        self,
+        obj_expr,
+        method_name,
+        args,
+        line=None,
+    ):
+
+        self.obj_expr    = obj_expr
+        self.method_name = method_name
+        self.args        = args
+        self.line        = line
+
+    def __repr__(self):
+
+        return (
+            f"MethodCallNode("
+            f"{self.obj_expr}.{self.method_name}"
+            f"({self.args}))"
+        )
+
+
+class PropertyAccessNode:
+    """
+    Represents reading a property from an object.
+
+      obj.property_name
+
+    Attributes
+    ----------
+    obj_expr      : AST node  — the object expression
+    property_name : str
+    line          : int
+    """
+
+    def __init__(
+        self,
+        obj_expr,
+        property_name,
+        line=None,
+    ):
+
+        self.obj_expr      = obj_expr
+        self.property_name = property_name
+        self.line          = line
+
+    def __repr__(self):
+
+        return (
+            f"PropertyAccessNode("
+            f"{self.obj_expr}.{self.property_name})"
+        )
+
+
+class PropertyAssignNode:
+    """
+    Represents assigning a value to an object property.
+
+      obj.property_name = value
+      this.hp = 100
+
+    Attributes
+    ----------
+    obj_expr      : AST node  — the object expression
+    property_name : str
+    value         : AST node
+    line          : int
+    """
+
+    def __init__(
+        self,
+        obj_expr,
+        property_name,
+        value,
+        line=None,
+    ):
+
+        self.obj_expr      = obj_expr
+        self.property_name = property_name
+        self.value         = value
+        self.line          = line
+
+    def __repr__(self):
+
+        return (
+            f"PropertyAssignNode("
+            f"{self.obj_expr}.{self.property_name}"
+            f" = {self.value})"
+        )

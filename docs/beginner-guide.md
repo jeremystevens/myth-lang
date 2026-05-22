@@ -451,3 +451,120 @@ print "Results saved."
 - Browse the `examples/` folder for working programs covering every feature
 - Check the **Roadmap** for what's coming next
 
+
+---
+
+## Classes and Objects
+
+*Added in v0.9.0*
+
+Classes let you bundle data and behaviour together into reusable objects.
+
+### Defining a Class
+
+```
+class Dog
+    init name breed
+        this.name  = name
+        this.breed = breed
+        this.tricks = []
+    end
+
+    method learn trick
+        this.tricks = append(this.tricks, trick)
+    end
+
+    method show_tricks()
+        print this.name + " knows:"
+        foreach trick in this.tricks
+            print "  - " + trick
+        end
+    end
+end
+```
+
+- `class` / `end` wraps the whole definition
+- `init` is the constructor — it runs automatically when you create an instance
+- `method` defines something the object can do
+- `this` always refers to the current object inside `init` and `method`
+
+### Creating an Object
+
+```
+rex = Dog("Rex", "Labrador")
+```
+
+Call the class name like a function and pass the constructor arguments.
+
+### Reading Properties
+
+```
+print rex.name    # Rex
+print rex.breed   # Labrador
+```
+
+### Calling Methods
+
+```
+rex.learn("sit")
+rex.learn("stay")
+rex.learn("fetch")
+
+rex.show_tricks()
+```
+
+### Methods That Return Values
+
+```
+class Calculator
+    init value
+        this.value = value
+    end
+
+    method doubled()
+        return this.value * 2
+    end
+end
+
+calc   = Calculator(21)
+result = calc.doubled()
+print result   # 42
+```
+
+### Multiple Instances
+
+Each object is independent — changing one does not affect another:
+
+```
+a = Dog("Rex",   "Labrador")
+b = Dog("Bella", "Poodle")
+
+a.learn("sit")
+b.learn("spin")
+
+# Rex knows sit, Bella knows spin — completely separate
+```
+
+### Checking the Type
+
+```
+print type_of(rex)   # Dog
+```
+
+---
+
+## Boolean Literals
+
+Use `true` and `false` directly in conditions and assignments:
+
+```
+alive = true
+
+if alive then
+    print "Still running"
+end
+
+done = false
+```
+
+They work anywhere a value is expected — in variables, function arguments, return statements, and conditions.

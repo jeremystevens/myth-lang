@@ -314,6 +314,64 @@ class Lexer:
                     )
                 )
 
+            # CLASS
+            elif line.startswith("class "):
+
+                class_name = line[6:].strip()
+
+                self.tokens.append(
+                    Token(
+                        "CLASS",
+                        class_name,
+                        line_number
+                    )
+                )
+
+            # INIT (constructor inside class)
+            elif line.startswith("init ") or line == "init":
+
+                params_str = (
+                    line[5:].strip()
+                    if line.startswith("init ")
+                    else ""
+                )
+
+                params = (
+                    params_str.split()
+                    if params_str
+                    else []
+                )
+
+                self.tokens.append(
+                    Token(
+                        "INIT",
+                        params,
+                        line_number
+                    )
+                )
+
+            # METHOD (method inside class)
+            elif line.startswith("method "):
+
+                rest   = line[7:].strip()
+
+                # Strip trailing () for zero-param methods
+                # e.g. "method is_alive()" → name="is_alive", params=[]
+                if rest.endswith("()"):
+                    rest = rest[:-2].strip()
+
+                parts  = rest.split()
+                mname  = parts[0] if parts else ""
+                params = parts[1:] if len(parts) > 1 else []
+
+                self.tokens.append(
+                    Token(
+                        "METHOD",
+                        (mname, params),
+                        line_number
+                    )
+                )
+
             # CALL
             # ─────────────────────────────────────
             # A standalone function call on its own
@@ -358,6 +416,30 @@ class Lexer:
                         )
                     )
 
+                # ── obj.method(...) → METHOD_CALL token ──
+                elif re.match(
+                    r'^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$',
+                    function_name
+                ):
+
+                    obj_name, mname = function_name.split(".", 1)
+
+                    args = []
+                    if args_string.strip():
+                        args = [
+                            arg.strip()
+                            for arg in
+                            args_string.split(",")
+                        ]
+
+                    self.tokens.append(
+                        Token(
+                            "METHOD_CALL",
+                            (obj_name, mname, args),
+                            line_number
+                        )
+                    )
+
                 # ── Validate: name must be an identifier ──
                 elif not re.match(
                     r'^[A-Za-z_][A-Za-z0-9_]*$',
@@ -390,6 +472,45 @@ class Lexer:
                                 function_name,
                                 args
                             ),
+                            line_number
+                        )
+                    )
+
+            # PROPERTY ASSIGNMENT  obj.prop = value  /  this.prop = value
+            elif (
+                "." in line
+                and "=" in line
+                and not line.startswith("if ")
+                and not line.startswith("while ")
+            ):
+                # Split on first '=' to get left and right sides
+                dot_eq = line.split("=", 1)
+                lhs    = dot_eq[0].strip()   # e.g. "this.hp"  "obj.name"
+                rhs    = dot_eq[1].strip()   # value expression
+
+                # Only treat as prop assign if lhs is obj.prop pattern
+                if re.match(
+                    r'^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$',
+                    lhs
+                ):
+                    obj_name, prop_name = lhs.split(".", 1)
+
+                    self.tokens.append(
+                        Token(
+                            "PROP_ASSIGN",
+                            (obj_name, prop_name, rhs),
+                            line_number
+                        )
+                    )
+
+                else:
+                    # Fall through to regular assignment
+                    name, value = line.split("=", 1)
+
+                    self.tokens.append(
+                        Token(
+                            "ASSIGN",
+                            (name.strip(), value.strip()),
                             line_number
                         )
                     )
