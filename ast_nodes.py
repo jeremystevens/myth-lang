@@ -3,11 +3,13 @@ class NumberNode:
     def __init__(
         self,
         value,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.value = value
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -21,11 +23,13 @@ class StringNode:
     def __init__(
         self,
         value,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.value = value
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -39,11 +43,13 @@ class VariableNode:
     def __init__(
         self,
         name,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.name = name
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -57,11 +63,13 @@ class ListNode:
     def __init__(
         self,
         elements,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.elements = elements
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -75,11 +83,13 @@ class DictionaryNode:
     def __init__(
         self,
         pairs,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.pairs = pairs
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -94,12 +104,14 @@ class IndexNode:
         self,
         collection,
         index,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.collection = collection
         self.index = index
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -117,13 +129,15 @@ class IndexAssignNode:
         collection,
         index,
         value,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.collection = collection
         self.index = index
         self.value = value
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -141,12 +155,14 @@ class UnaryOperationNode:
         self,
         operator,
         operand,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.operator = operator
         self.operand = operand
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -164,13 +180,15 @@ class LogicalOperationNode:
         left,
         operator,
         right,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.left = left
         self.operator = operator
         self.right = right
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -189,13 +207,15 @@ class BinaryOperationNode:
         left,
         operator,
         right,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.left = left
         self.operator = operator
         self.right = right
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -214,13 +234,15 @@ class CompareNode:
         left,
         operator,
         right,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.left = left
         self.operator = operator
         self.right = right
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -237,11 +259,13 @@ class PrintNode:
     def __init__(
         self,
         value,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.value = value
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -256,12 +280,14 @@ class AssignNode:
         self,
         name,
         value,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.name = name
         self.value = value
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -280,7 +306,8 @@ class ForNode:
         start,
         end,
         body,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.variable = variable
@@ -288,6 +315,7 @@ class ForNode:
         self.end = end
         self.body = body
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -307,13 +335,15 @@ class ForEachNode:
         variable,
         iterable,
         body,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.variable = variable
         self.iterable = iterable
         self.body = body
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -332,13 +362,15 @@ class IfNode:
         condition,
         true_body,
         false_body=None,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.condition = condition
         self.true_body = true_body
         self.false_body = false_body
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -356,12 +388,14 @@ class WhileNode:
         self,
         condition,
         body,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.condition = condition
         self.body = body
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -379,13 +413,15 @@ class FunctionNode:
         name,
         params,
         body,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.name = name
         self.params = params
         self.body = body
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -403,12 +439,14 @@ class CallNode:
         self,
         name,
         args,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.name = name
         self.args = args
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -424,11 +462,13 @@ class ReturnNode:
     def __init__(
         self,
         value,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         self.value = value
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -442,7 +482,8 @@ class ImportNode:
     def __init__(
         self,
         path,
-        line=None
+        line=None,
+        source_file=None
     ):
 
         # The raw module path string as written
@@ -451,6 +492,7 @@ class ImportNode:
         # responsible for resolving it to a file.
         self.path = path
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
 
@@ -478,10 +520,11 @@ class FromImportNode:
     line  : int
     """
 
-    def __init__(self, path, names, line=None):
-        self.path  = path
-        self.names = names
-        self.line  = line
+    def __init__(self, path, names, line=None, source_file=None):
+        self.path        = path
+        self.names       = names
+        self.line        = line
+        self.source_file = source_file
 
     def __repr__(self):
         return (
@@ -511,9 +554,10 @@ class ExportNode:
     line : int
     """
 
-    def __init__(self, name, line=None):
+    def __init__(self, name, line=None, source_file=None):
         self.name = name
         self.line = line
+        self.source_file = source_file
 
     def __repr__(self):
         return f'ExportNode("{self.name}")'

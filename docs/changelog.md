@@ -344,3 +344,46 @@ All notable changes to MyLang are documented here.
 - **`pretty()` function** — custom formatter for lists (compact for short, multiline for long), dicts, `MyLangObject` (shows class name and all properties), `MyLangNamespace` (shows alias and exports), and booleans (`true`/`false`)
 - **Welcome banner** — box-drawn banner showing version, available commands, and keyboard shortcuts
 - **`~/.mylang/`** — home directory is created automatically on first launch for history and future config storage
+
+---
+
+## v1.3.0
+
+### Source Maps & Runtime Debug Mapping — Phase 8b
+
+#### `source_map.py` (new file — 288 lines)
+
+- **`SourceLocation`** — dataclass mapping one bytecode instruction index back to its source origin: `instruction_idx`, `source_file`, `line`, `ast_node_type`, `was_optimised`, `origin_line`
+- **`SourceMap`** — lookup table from instruction index → `SourceLocation`; built by the `Compiler` as it emits instructions; travels with the `Chunk` it belongs to; methods: `record()`, `get()`, `lookup_line()`, `lookup_file()`, `all_entries()`, `summary()`
+- **`VMTraceFrame`** — one frame in a VM call-stack traceback: `chunk_name`, `source_file`, `line`, `instruction_idx`, `source_line_text`
+- **`VMRuntimeError`** — VM runtime error with a full `frames` list, `source_file`, and `line`; has `format_traceback()` producing a professional boxed display with call stack and source line annotations
+- **`format_vm_traceback()`** — renders a `VMRuntimeError` in the style: `at calculate()  game.my : 42  ▶  total = hp / 0`
+- **`build_source_index()`** — splits source text into a list of lines for fast 1-based lookup
+- **`source_line_text()`** — safely retrieves the text of a 1-based source line
+
+#### `ast_nodes.py` changes
+
+- **`source_file` field added to all 22 AST node types** — every node now accepts `source_file=None` and stores `self.source_file`; enables the compiler to carry file origin through the full AST → bytecode pipeline
+- Compact `__init__` signatures in `ExportNode` and `FromImportNode` also updated
+
+#### `compiler.py` changes
+
+- **`Instruction` extended** — two new fields: `source_file: str` and `ast_node_type: str`; every emitted instruction now carries its origin file and the AST node type that produced it
+- **`Chunk` extended** — `source_file` constructor parameter; `source_map: SourceMap` instance built alongside the instruction list; `disassemble()` now shows `filename:line <NodeType> [opt]` annotations on every instruction
+- **`Chunk.emit()` extended** — new parameters: `source_file`, `ast_node_type`, `was_optimised`, `origin_line`; records every emission in the source map automatically
+- **`Compiler(source_file=)` parameter** — compiler now accepts the source file path and propagates it to all emitted instructions and sub-chunks
+- **`Compiler._emit()` helper** — new method that wraps `chunk.emit()` and extracts `line`, `source_file`, `ast_node_type`, `_was_optimised`, and `_origin_line` from AST nodes automatically; all statement and expression compile methods updated to use `_emit` instead of `chunk.emit`
+
+#### `optimizer.py` changes
+
+- **`_make_literal()` extended** — now accepts `origin_line` parameter and attaches `_origin_line` and `_was_optimised = True` to every folded literal node; enables the compiler to tag constant-folded instructions as `[opt]` in the source map and disassembly
+- All five `_make_literal()` call sites updated to pass `origin_line=node.line`
+
+#### `vm.py` changes
+
+- **`VMRuntimeError` imported from `source_map`** — VM no longer raises bare Python `NameError`/`RuntimeError`/`AttributeError`; all errors go through `_make_error()` which builds a full `VMRuntimeError` with source-mapped frames
+- **`VM._current_line` and `VM._current_file`** — new state fields updated on every instruction fetch; always reflect the source location of the currently executing instruction
+- **`VM._source_lines`** — dict mapping file path → list of source lines; populated via `vm.load_source(source, file_path)`; used by `_make_error()` to include source line text in traceback frames
+- **`VM._make_error()`** — new method; walks the current call stack, looks up each frame's source location from its chunk's `SourceMap`, and constructs a `VMRuntimeError` with one `VMTraceFrame` per call frame
+- **`VM._run()` updated** — updates `_current_line`/`_current_file` before each dispatch; wraps handler calls in `try/except` to catch all errors and re-raise as `VMRuntimeError` with source context
+- **`VM.load_source()`** — new public method to cache source text for traceback display

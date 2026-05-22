@@ -80,9 +80,11 @@ from typing import Any, Optional
 
 @dataclass
 class Instruction:
-    opcode  : str
-    operand : Any = None
-    line    : Optional[int] = None
+    opcode       : str
+    operand      : Any = None
+    line         : Optional[int] = None
+    source_file  : str = "<unknown>"   # Phase 8b: which .my file
+    ast_node_type: str = ""            # Phase 8b: originating AST node type
 
     def __repr__(self):
         if self.operand is not None:
@@ -100,24 +102,60 @@ class Chunk:
     Top-level scripts and each function body get their own Chunk.
     """
 
-    def __init__(self, name: str = "<main>"):
+    def __init__(self, name: str = "<main>", source_file: str = "<unknown>"):
         self.name         = name
+        self.source_file  = source_file
         self.instructions : list[Instruction] = []
-        self.constants    : list = []        # constant pool
-        self.sub_chunks   : dict = {}        # name → Chunk (functions)
+        self.constants    : list = []
+        self.sub_chunks   : dict = {}
+        # Phase 8b: source map for this chunk
+        from source_map import SourceMap
+        self.source_map   = SourceMap(source_file)
 
     # ── Emit helpers ──────────────────────────────────────────────────────
 
-    def emit(self, opcode: str, operand=None, line: int = None) -> int:
-        """Append an instruction and return its index."""
-        self.instructions.append(Instruction(opcode, operand, line))
-        return len(self.instructions) - 1
+    def emit(
+        self,
+        opcode       : str,
+        operand      = None,
+        line         : int  = None,
+        source_file  : str  = None,
+        ast_node_type: str  = "",
+        was_optimised: bool = False,
+        origin_line  : int  = 0,
+    ) -> int:
+        """
+        Append an instruction and record it in the source map.
+        Returns the instruction's index.
+        """
+        sf  = source_file or self.source_file
+        ins = Instruction(
+            opcode        = opcode,
+            operand       = operand,
+            line          = line,
+            source_file   = sf,
+            ast_node_type = ast_node_type,
+        )
+        idx = len(self.instructions)
+        self.instructions.append(ins)
+
+        # Register in source map
+        if line:
+            self.source_map.record(
+                instruction_idx = idx,
+                line            = line,
+                ast_node_type   = ast_node_type,
+                was_optimised   = was_optimised,
+                origin_line     = origin_line,
+                source_file     = sf,
+            )
+
+        return idx
 
     def patch_jump(self, idx: int):
         """
         Back-patch a JUMP* instruction at index idx so its operand
         points to the current end of the instruction list.
-        The operand becomes an absolute instruction index.
         """
         self.instructions[idx].operand = len(self.instructions)
 
@@ -125,10 +163,23 @@ class Chunk:
 
     def disassemble(self, indent: int = 0) -> str:
         pad   = "  " * indent
-        lines = [f"{pad}=== chunk: {self.name} ({len(self.instructions)} instructions) ==="]
+        lines = [
+            f"{pad}=== chunk: {self.name} "
+            f"({len(self.instructions)} instructions) "
+            f"[{self.source_file}] ==="
+        ]
 
         for i, ins in enumerate(self.instructions):
-            src = f"  ; L{ins.line}" if ins.line else ""
+            # Phase 8b: show file:line and node type in disassembly
+            loc   = self.source_map.get(i)
+            src   = ""
+            if loc and loc.line:
+                fname = loc.source_file.split("/")[-1].split("\\")[-1]
+                src   = f"  ; {fname}:{loc.line}"
+                if loc.ast_node_type:
+                    src += f" <{loc.ast_node_type}>"
+                if loc.was_optimised:
+                    src += " [opt]"
             lines.append(f"{pad}  {i:04d}  {ins!r}{src}")
 
         for name, sub in self.sub_chunks.items():
@@ -148,14 +199,53 @@ class Compiler:
 
     The compiler does NOT execute any code — it only translates
     the AST structure into a flat instruction sequence.
+
+    Phase 8b: accepts source_file so every instruction is mapped
+    back to its origin file.
     """
+
+    def __init__(self, source_file: str = "<unknown>"):
+        self.source_file = source_file
 
     def compile(self, nodes: list) -> Chunk:
         """Compile a top-level node list into the main chunk."""
-        chunk = Chunk("<main>")
+        chunk = Chunk("<main>", source_file=self.source_file)
         self._compile_block(nodes, chunk)
         chunk.emit("HALT")
         return chunk
+
+    # ── Source-aware emit helper ──────────────────────────────────────────
+
+    def _emit(
+        self,
+        chunk        : Chunk,
+        opcode       : str,
+        operand      = None,
+        node         = None,
+        was_optimised: bool = False,
+    ) -> int:
+        """
+        Emit an instruction with full source-map metadata.
+        `node` is the originating AST node (for line + type).
+        Phase 8b: reads _was_optimised and _origin_line from
+        optimizer-folded nodes automatically.
+        """
+        line          = getattr(node, "line", None)
+        ast_node_type = type(node).__name__ if node is not None else ""
+        source_file   = getattr(node, "source_file", None) or self.source_file
+        origin_line   = getattr(node, "_origin_line", None) or line or 0
+        # Nodes tagged by optimizer carry _was_optimised = True
+        was_opt       = was_optimised or getattr(node, "_was_optimised", False)
+
+        return chunk.emit(
+            opcode,
+            operand,
+            line          = line,
+            source_file   = source_file,
+            ast_node_type = ast_node_type,
+            was_optimised = was_opt,
+            origin_line   = origin_line,
+        )
 
     # ── Block (list of statements) ────────────────────────────────────────
 
@@ -171,20 +261,20 @@ class Compiler:
         # PRINT
         if t == "PrintNode":
             self._compile_expr(node.value, chunk)
-            chunk.emit("PRINT", line=node.line)
+            self._emit(chunk, "PRINT", node=node)
 
         # ASSIGN
         elif t == "AssignNode":
             self._compile_expr(node.value, chunk)
-            chunk.emit("STORE_VAR", node.name, node.line)
+            self._emit(chunk, "STORE_VAR", node.name, node=node)
 
         # RETURN
         elif t == "ReturnNode":
             if node.value is not None:
                 self._compile_expr(node.value, chunk)
             else:
-                chunk.emit("PUSH_NULL", line=node.line)
-            chunk.emit("RETURN", line=node.line)
+                self._emit(chunk, "PUSH_NULL", node=node)
+            self._emit(chunk, "RETURN", node=node)
 
         # IF
         elif t == "IfNode":
@@ -213,155 +303,119 @@ class Compiler:
         # STANDALONE CALL
         elif t == "CallNode":
             self._compile_call(node, chunk)
-            chunk.emit("POP", line=node.line)  # discard return value
+            self._emit(chunk, "POP", node=node)
 
         # STANDALONE METHOD CALL
         elif t == "MethodCallNode":
             self._compile_expr(node, chunk)
-            chunk.emit("POP", line=node.line)
+            self._emit(chunk, "POP", node=node)
 
         # PROPERTY ASSIGN
         elif t == "PropertyAssignNode":
             self._compile_expr(node.obj_expr, chunk)
             self._compile_expr(node.value, chunk)
-            chunk.emit("STORE_ATTR", node.property_name, node.line)
+            self._emit(chunk, "STORE_ATTR", node.property_name, node=node)
 
         # INDEX ASSIGN
         elif t == "IndexAssignNode":
             self._compile_expr(node.collection, chunk)
             self._compile_expr(node.index, chunk)
             self._compile_expr(node.value, chunk)
-            chunk.emit("INDEX_SET", line=node.line)
+            self._emit(chunk, "INDEX_SET", node=node)
 
         # IMPORT
         elif t == "ImportNode":
-            chunk.emit("IMPORT", node.path, node.line)
+            self._emit(chunk, "IMPORT", node.path, node=node)
 
         # FROM IMPORT
         elif t == "FromImportNode":
-            chunk.emit("FROM_IMPORT", (node.path, node.names), node.line)
+            self._emit(chunk, "FROM_IMPORT", (node.path, node.names), node=node)
 
         # EXPORT
         elif t == "ExportNode":
-            chunk.emit("EXPORT", node.name, node.line)
+            self._emit(chunk, "EXPORT", node.name, node=node)
 
     # ── Control flow ──────────────────────────────────────────────────────
 
     def _compile_if(self, node, chunk: Chunk):
-        # Compile condition
         self._compile_expr(node.condition, chunk)
-
-        # JUMP_IF_FALSE to else branch (back-patched)
-        jump_to_else = chunk.emit("JUMP_IF_FALSE", None, node.line)
-
-        # True branch
+        jump_to_else = self._emit(chunk, "JUMP_IF_FALSE", None, node=node)
         self._compile_block(node.true_body, chunk)
-
         if node.false_body:
-            # JUMP past the else branch (back-patched)
-            jump_past_else = chunk.emit("JUMP", None, node.line)
-
-            # Patch the JUMP_IF_FALSE to here (start of else)
+            jump_past_else = self._emit(chunk, "JUMP", None, node=node)
             chunk.patch_jump(jump_to_else)
-
-            # False branch
             self._compile_block(node.false_body, chunk)
-
-            # Patch JUMP to here (past else)
             chunk.patch_jump(jump_past_else)
         else:
             chunk.patch_jump(jump_to_else)
 
     def _compile_while(self, node, chunk: Chunk):
         loop_start = len(chunk.instructions)
-
         self._compile_expr(node.condition, chunk)
-        jump_out = chunk.emit("JUMP_IF_FALSE", None, node.line)
-
+        jump_out = self._emit(chunk, "JUMP_IF_FALSE", None, node=node)
         self._compile_block(node.body, chunk)
-        chunk.emit("JUMP", loop_start, node.line)   # back-edge
-
+        self._emit(chunk, "JUMP", loop_start, node=node)
         chunk.patch_jump(jump_out)
 
     def _compile_for(self, node, chunk: Chunk):
-        # Store loop variable = start
         self._compile_expr(node.start, chunk)
-        chunk.emit("STORE_VAR", node.variable, node.line)
-
+        self._emit(chunk, "STORE_VAR", node.variable, node=node)
         loop_start = len(chunk.instructions)
-
-        # Condition: variable <= end
-        chunk.emit("LOAD_VAR", node.variable, node.line)
+        self._emit(chunk, "LOAD_VAR", node.variable, node=node)
         self._compile_expr(node.end, chunk)
-        chunk.emit("LE", line=node.line)    # <=  (not yet in parser, but in VM spec)
-        jump_out = chunk.emit("JUMP_IF_FALSE", None, node.line)
-
+        self._emit(chunk, "LE", node=node)
+        jump_out = self._emit(chunk, "JUMP_IF_FALSE", None, node=node)
         self._compile_block(node.body, chunk)
-
-        # Increment
-        chunk.emit("LOAD_VAR", node.variable, node.line)
-        chunk.emit("PUSH_INT", 1, node.line)
-        chunk.emit("ADD", line=node.line)
-        chunk.emit("STORE_VAR", node.variable, node.line)
-
-        chunk.emit("JUMP", loop_start, node.line)
+        self._emit(chunk, "LOAD_VAR", node.variable, node=node)
+        self._emit(chunk, "PUSH_INT", 1, node=node)
+        self._emit(chunk, "ADD", node=node)
+        self._emit(chunk, "STORE_VAR", node.variable, node=node)
+        self._emit(chunk, "JUMP", loop_start, node=node)
         chunk.patch_jump(jump_out)
 
     def _compile_foreach(self, node, chunk: Chunk):
-        # Compile the iterable, store in a hidden temp var
         self._compile_expr(node.iterable, chunk)
         tmp_iter  = f"__iter_{node.variable}"
         tmp_index = f"__idx_{node.variable}"
-        chunk.emit("STORE_VAR", tmp_iter,  node.line)
-        chunk.emit("PUSH_INT",  0,          node.line)
-        chunk.emit("STORE_VAR", tmp_index, node.line)
-
+        self._emit(chunk, "STORE_VAR", tmp_iter, node=node)
+        self._emit(chunk, "PUSH_INT", 0, node=node)
+        self._emit(chunk, "STORE_VAR", tmp_index, node=node)
         loop_start = len(chunk.instructions)
-
-        # Condition: index < length(iter)
-        chunk.emit("LOAD_VAR",  tmp_index, node.line)
-        chunk.emit("LOAD_VAR",  tmp_iter,  node.line)
-        chunk.emit("CALL_BUILTIN", ("length", 1), node.line)
-        chunk.emit("LT", line=node.line)
-        jump_out = chunk.emit("JUMP_IF_FALSE", None, node.line)
-
-        # Load current element
-        chunk.emit("LOAD_VAR",   tmp_iter,  node.line)
-        chunk.emit("LOAD_VAR",   tmp_index, node.line)
-        chunk.emit("INDEX_GET",  line=node.line)
-        chunk.emit("STORE_VAR",  node.variable, node.line)
-
+        self._emit(chunk, "LOAD_VAR", tmp_index, node=node)
+        self._emit(chunk, "LOAD_VAR", tmp_iter, node=node)
+        self._emit(chunk, "CALL_BUILTIN", ("length", 1), node=node)
+        self._emit(chunk, "LT", node=node)
+        jump_out = self._emit(chunk, "JUMP_IF_FALSE", None, node=node)
+        self._emit(chunk, "LOAD_VAR", tmp_iter, node=node)
+        self._emit(chunk, "LOAD_VAR", tmp_index, node=node)
+        self._emit(chunk, "INDEX_GET", node=node)
+        self._emit(chunk, "STORE_VAR", node.variable, node=node)
         self._compile_block(node.body, chunk)
-
-        # Increment index
-        chunk.emit("LOAD_VAR",  tmp_index, node.line)
-        chunk.emit("PUSH_INT",  1,          node.line)
-        chunk.emit("ADD",  line=node.line)
-        chunk.emit("STORE_VAR", tmp_index, node.line)
-
-        chunk.emit("JUMP", loop_start, node.line)
+        self._emit(chunk, "LOAD_VAR", tmp_index, node=node)
+        self._emit(chunk, "PUSH_INT", 1, node=node)
+        self._emit(chunk, "ADD", node=node)
+        self._emit(chunk, "STORE_VAR", tmp_index, node=node)
+        self._emit(chunk, "JUMP", loop_start, node=node)
         chunk.patch_jump(jump_out)
 
     # ── Functions and classes ─────────────────────────────────────────────
 
     def _compile_function(self, node, chunk: Chunk):
-        sub = Chunk(node.name)
+        sub = Chunk(node.name, source_file=self.source_file)
         self._compile_block(node.body, sub)
         sub.emit("PUSH_NULL")
         sub.emit("RETURN")
         chunk.sub_chunks[node.name] = sub
-        chunk.emit("MAKE_FUNCTION", (node.name, node.params), node.line)
+        self._emit(chunk, "MAKE_FUNCTION", (node.name, node.params), node=node)
 
     def _compile_class(self, node, chunk: Chunk):
-        # Compile init body as a sub-chunk
-        init_chunk = Chunk(f"{node.name}.__init__")
+        init_chunk = Chunk(f"{node.name}.__init__", source_file=self.source_file)
         self._compile_block(node.init_body, init_chunk)
         init_chunk.emit("RETURN")
 
-        # Compile each method
         method_chunks = {}
         for mname, mnode in node.methods.items():
-            mc = Chunk(f"{node.name}.{mname}")
+            mc = Chunk(f"{node.name}.{mname}", source_file=self.source_file)
             self._compile_block(mnode.body, mc)
             mc.emit("PUSH_NULL")
             mc.emit("RETURN")
@@ -371,10 +425,11 @@ class Compiler:
         for mname, mc in method_chunks.items():
             chunk.sub_chunks[f"{node.name}.{mname}"] = mc
 
-        chunk.emit(
+        self._emit(
+            chunk,
             "MAKE_CLASS",
             (node.name, node.params, list(method_chunks.keys())),
-            node.line,
+            node=node,
         )
 
     # ── Expressions ───────────────────────────────────────────────────────
@@ -388,37 +443,34 @@ class Compiler:
 
         if t == "NumberNode":
             if isinstance(node.value, bool):
-                chunk.emit("PUSH_BOOL", node.value, node.line)
+                self._emit(chunk, "PUSH_BOOL", node.value, node=node)
             else:
-                chunk.emit("PUSH_INT", node.value, node.line)
+                self._emit(chunk, "PUSH_INT", node.value, node=node)
 
         elif t == "StringNode":
-            chunk.emit("PUSH_STR", node.value, node.line)
+            self._emit(chunk, "PUSH_STR", node.value, node=node)
 
         elif t == "VariableNode":
-            chunk.emit("LOAD_VAR", node.name, node.line)
+            self._emit(chunk, "LOAD_VAR", node.name, node=node)
 
         elif t == "BinaryOperationNode":
             self._compile_expr(node.left, chunk)
             self._compile_expr(node.right, chunk)
-            op_map = {
-                "+": "ADD", "-": "SUB",
-                "*": "MUL", "/": "DIV", "%": "MOD",
-            }
-            chunk.emit(op_map.get(node.operator, "ADD"), line=node.line)
+            op_map = {"+": "ADD", "-": "SUB", "*": "MUL", "/": "DIV", "%": "MOD"}
+            self._emit(chunk, op_map.get(node.operator, "ADD"), node=node)
 
         elif t == "CompareNode":
             self._compile_expr(node.left, chunk)
             self._compile_expr(node.right, chunk)
             op_map = {"==": "EQ", ">": "GT", "<": "LT"}
-            chunk.emit(op_map.get(node.operator, "EQ"), line=node.line)
+            self._emit(chunk, op_map.get(node.operator, "EQ"), node=node)
 
         elif t == "LogicalOperationNode":
             self._compile_logical(node, chunk)
 
         elif t == "UnaryOperationNode":
             self._compile_expr(node.operand, chunk)
-            chunk.emit("NOT" if node.operator == "not" else "NEG", line=node.line)
+            self._emit(chunk, "NOT" if node.operator == "not" else "NEG", node=node)
 
         elif t == "CallNode":
             self._compile_call(node, chunk)
@@ -427,52 +479,50 @@ class Compiler:
             self._compile_expr(node.obj_expr, chunk)
             for arg in node.args:
                 self._compile_expr(arg, chunk)
-            chunk.emit("CALL_METHOD", (node.method_name, len(node.args)), node.line)
+            self._emit(chunk, "CALL_METHOD", (node.method_name, len(node.args)), node=node)
 
         elif t == "PropertyAccessNode":
             self._compile_expr(node.obj_expr, chunk)
-            chunk.emit("LOAD_ATTR", node.property_name, node.line)
+            self._emit(chunk, "LOAD_ATTR", node.property_name, node=node)
 
         elif t == "IndexNode":
             self._compile_expr(node.collection, chunk)
             self._compile_expr(node.index, chunk)
-            chunk.emit("INDEX_GET", line=node.line)
+            self._emit(chunk, "INDEX_GET", node=node)
 
         elif t == "ListNode":
             for elem in node.elements:
                 self._compile_expr(elem, chunk)
-            chunk.emit("BUILD_LIST", len(node.elements), node.line)
+            self._emit(chunk, "BUILD_LIST", len(node.elements), node=node)
 
         elif t == "DictionaryNode":
             for key, val in node.pairs.items():
-                chunk.emit("PUSH_STR", key, node.line)
+                self._emit(chunk, "PUSH_STR", key, node=node)
                 self._compile_expr(val, chunk)
-            chunk.emit("BUILD_DICT", len(node.pairs), node.line)
+            self._emit(chunk, "BUILD_DICT", len(node.pairs), node=node)
 
     def _compile_logical(self, node, chunk: Chunk):
-        """Short-circuit AND / OR with conditional jumps."""
         if node.operator == "and":
             self._compile_expr(node.left, chunk)
-            chunk.emit("DUP", line=node.line)
-            jump_false = chunk.emit("JUMP_IF_FALSE", None, node.line)
-            chunk.emit("POP", line=node.line)
+            self._emit(chunk, "DUP", node=node)
+            jump_false = self._emit(chunk, "JUMP_IF_FALSE", None, node=node)
+            self._emit(chunk, "POP", node=node)
             self._compile_expr(node.right, chunk)
             chunk.patch_jump(jump_false)
-
         elif node.operator == "or":
             self._compile_expr(node.left, chunk)
-            chunk.emit("DUP", line=node.line)
-            jump_true = chunk.emit("JUMP_IF_TRUE", None, node.line)
-            chunk.emit("POP", line=node.line)
+            self._emit(chunk, "DUP", node=node)
+            jump_true = self._emit(chunk, "JUMP_IF_TRUE", None, node=node)
+            self._emit(chunk, "POP", node=node)
             self._compile_expr(node.right, chunk)
             chunk.patch_jump(jump_true)
 
-    def _compile_call(self, node: CallNode, chunk: Chunk):
+    def _compile_call(self, node: "CallNode", chunk: Chunk):
         from ast_interpreter import ASTInterpreter
         builtins = set(ASTInterpreter({}).builtins.keys()) if hasattr(ASTInterpreter, 'builtins') else set()
         for arg in node.args:
             self._compile_expr(arg, chunk)
         if node.name in builtins:
-            chunk.emit("CALL_BUILTIN", (node.name, len(node.args)), node.line)
+            self._emit(chunk, "CALL_BUILTIN", (node.name, len(node.args)), node=node)
         else:
-            chunk.emit("CALL", (node.name, len(node.args)), node.line)
+            self._emit(chunk, "CALL", (node.name, len(node.args)), node=node)

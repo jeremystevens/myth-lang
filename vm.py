@@ -48,6 +48,7 @@ Usage
 
 from compiler import Chunk, Instruction
 from ast_nodes import *
+from source_map import VMRuntimeError, VMTraceFrame, SourceMap
 import random as _random
 
 
@@ -101,40 +102,43 @@ class VM:
     """
     Executes a compiled Chunk.
 
-    The VM dispatches each opcode to a handler method named
-    _op_<OPCODE> (e.g. _op_ADD, _op_LOAD_VAR).  This dispatch
-    table approach avoids cascading isinstance checks and makes
-    adding new opcodes trivial.
+    Phase 8b: tracks the current instruction's source location at all
+    times and raises VMRuntimeError (from source_map.py) instead of
+    plain Python exceptions — giving every VM error a full call-stack
+    traceback mapped back to the original .my source lines.
     """
 
     def __init__(self):
         self.stack       : list  = []
-        self.call_stack  : list  = []   # list[Frame]
-        self.globals     : dict  = {}   # global variable scope
-        self.functions   : dict  = {}   # name → Chunk
-        self.classes     : dict  = {}   # name → (params, method_chunks)
-        self.namespaces  : dict  = {}   # alias → VMNamespace
+        self.call_stack  : list  = []
+        self.globals     : dict  = {}
+        self.functions   : dict  = {}
+        self.classes     : dict  = {}
+        self.namespaces  : dict  = {}
+        # Phase 8b: source tracking
+        self._current_line   : int = 0
+        self._current_file   : str = "<unknown>"
+        self._source_lines   : dict = {}   # file → list[str]
         self._build_dispatch()
         self._build_builtins()
 
     # ── Execution entry point ──────────────────────────────────────────────
 
     def execute(self, chunk: Chunk) -> None:
-        """Execute a top-level Chunk."""
-        # Register all sub-chunks (functions / methods)
         self._register_sub_chunks(chunk)
-
         frame = Frame(chunk, self.globals)
         self.call_stack = [frame]
-
         self._run()
+
+    def load_source(self, source: str, file_path: str = "<unknown>"):
+        """Cache source lines for traceback display."""
+        self._source_lines[file_path] = source.splitlines()
 
     def _run(self):
         while self.call_stack:
             frame = self.call_stack[-1]
 
             if frame.pc >= len(frame.chunk.instructions):
-                # Fell off the end of the chunk — implicit return None
                 self.call_stack.pop()
                 if self.call_stack:
                     self.stack.append(None)
@@ -142,17 +146,63 @@ class VM:
 
             ins = frame.fetch()
 
+            # Phase 8b: update current source location
+            if ins.line:
+                self._current_line = ins.line
+            if ins.source_file and ins.source_file != "<unknown>":
+                self._current_file = ins.source_file
+
             handler = self._dispatch.get(ins.opcode)
 
             if handler is None:
-                raise RuntimeError(
-                    f"Unknown opcode: {ins.opcode}"
-                )
+                raise self._make_error(f"Unknown opcode: {ins.opcode}")
 
-            result = handler(frame, ins)
+            try:
+                result = handler(frame, ins)
+            except VMRuntimeError:
+                raise   # already wrapped — propagate
+            except Exception as e:
+                raise self._make_error(str(e)) from e
 
             if result == "HALT":
                 break
+
+    # ── Source-map error construction ──────────────────────────────────────
+
+    def _make_error(self, message: str) -> "VMRuntimeError":
+        """
+        Build a VMRuntimeError with the current call stack mapped
+        back to source locations.
+        """
+        from source_map import VMRuntimeError as VRE, VMTraceFrame, source_line_text
+
+        frames = []
+        for frame in self.call_stack:
+            loc = frame.chunk.source_map.get(frame.pc - 1)
+            if loc:
+                line  = loc.line
+                sfile = loc.source_file
+            else:
+                line  = self._current_line
+                sfile = self._current_file
+
+            src_lines = self._source_lines.get(sfile, [])
+            src_text  = source_line_text(src_lines, line)
+
+            frames.append(VMTraceFrame(
+                chunk_name       = frame.chunk.name,
+                source_file      = sfile,
+                line             = line,
+                instruction_idx  = frame.pc - 1,
+                source_line_text = src_text,
+            ))
+
+        return VRE(
+            message     = message,
+            frames      = frames,
+            source_file = self._current_file,
+            line        = self._current_line,
+        )
 
     # ── Dispatch table ─────────────────────────────────────────────────────
 

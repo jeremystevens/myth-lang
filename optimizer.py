@@ -97,12 +97,20 @@ def _literal_value(node):
     raise ValueError("Not a literal")
 
 
-def _make_literal(value, line=None):
-    """Wrap a Python value back into the appropriate AST literal node."""
+def _make_literal(value, line=None, origin_line=None):
+    """
+    Wrap a Python value back into the appropriate AST literal node.
+    Attaches _origin_line so the compiler can mark it as optimised
+    and preserve the original source location in the source map.
+    """
     if isinstance(value, str):
-        return StringNode(value, line)
-    # int and bool both map to NumberNode
-    return NumberNode(value, line)
+        node = StringNode(value, line)
+    else:
+        node = NumberNode(value, line)
+    # Phase 8b: tag with origin so source_map can show [opt]
+    node._origin_line    = origin_line or line
+    node._was_optimised  = True
+    return node
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +284,7 @@ class ASTOptimiser:
                 rv = _literal_value(right)
                 result = _fold_binary(node.operator, lv, rv)
                 self.stats["folded_binary"] += 1
-                return _make_literal(result, node.line)
+                return _make_literal(result, node.line, origin_line=node.line)
             except (ValueError, TypeError):
                 return BinaryOperationNode(left, node.operator, right, node.line)
 
@@ -289,7 +297,7 @@ class ASTOptimiser:
                 rv = _literal_value(right)
                 result = _fold_compare(node.operator, lv, rv)
                 self.stats["folded_compare"] += 1
-                return _make_literal(result, node.line)
+                return _make_literal(result, node.line, origin_line=node.line)
             except (ValueError, TypeError):
                 return CompareNode(left, node.operator, right, node.line)
 
@@ -300,7 +308,7 @@ class ASTOptimiser:
                 try:
                     v = _literal_value(operand)
                     self.stats["folded_binary"] += 1
-                    return _make_literal(not v, node.line)
+                    return _make_literal(not v, node.line, origin_line=node.line)
                 except ValueError:
                     pass
             return UnaryOperationNode(node.operator, operand, node.line)
@@ -315,7 +323,7 @@ class ASTOptimiser:
                     if not lv:
                         # false and X → false
                         self.stats["folded_binary"] += 1
-                        return _make_literal(False, node.line)
+                        return _make_literal(False, node.line, origin_line=node.line)
                     else:
                         # true and X → X
                         self.stats["folded_binary"] += 1
@@ -324,7 +332,7 @@ class ASTOptimiser:
                     if lv:
                         # true or X → true
                         self.stats["folded_binary"] += 1
-                        return _make_literal(True, node.line)
+                        return _make_literal(True, node.line, origin_line=node.line)
                     else:
                         # false or X → X
                         self.stats["folded_binary"] += 1
