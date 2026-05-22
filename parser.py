@@ -39,63 +39,85 @@ class Parser:
         operator
     ):
 
-        depth = 0
-        in_string = False
+        # ─────────────────────────────────────────
+        # Search RIGHT-TO-LEFT for the operator so
+        # that binary expressions are LEFT-associative.
+        #
+        # Scanning left-to-right splits a + b + c
+        # as left="a", right="b + c", producing:
+        #   add(a, add(b, c))   ← right-associative WRONG
+        #
+        # Scanning right-to-left splits it as
+        # left="a + b", right="c", producing:
+        #   add(add(a, b), c)   ← left-associative CORRECT
+        #
+        # == uses left-to-right (non-associative).
+        # ─────────────────────────────────────────
 
-        i = 0
+        n = len(expr)
 
-        while i < len(expr):
+        if operator == "==":
 
-            char = expr[i]
+            # Left-to-right scan for ==
+            depth = 0
+            in_string = False
+            i = 0
+            while i < n:
+                ch = expr[i]
+                if ch == '"':
+                    in_string = not in_string
+                elif not in_string:
+                    if ch in "([{":
+                        depth += 1
+                    elif ch in ")]}":
+                        depth -= 1
+                    if depth == 0 and expr[i:i+2] == "==":
+                        return (expr[:i], expr[i+2:])
+                i += 1
+            return None
 
-            if char == '"':
+        # ── Right-to-left scan for all other operators ──────────────
+        # Build position-level metadata in one forward pass:
+        #   depth_at[i]  — bracket depth at position i
+        #   in_str_at[i] — True if position i is inside a string
 
-                in_string = not in_string
+        depth_at  = [0] * n
+        in_str_at = [False] * n
 
-            elif not in_string:
+        d = 0
+        s = False
+        for i in range(n):
+            ch = expr[i]
+            if ch == '"':
+                s = not s
+            elif not s:
+                if ch in "([{":
+                    d += 1
+                elif ch in ")]}":
+                    d -= 1
+            depth_at[i]  = d
+            in_str_at[i] = s
 
-                if char in "([{":
-                    depth += 1
+        op_len = len(operator)
+        i = n - op_len
 
-                elif char in ")]}":
-                    depth -= 1
+        while i >= 0:
 
-                if (
-                    operator == "=="
-                    and
-                    depth == 0
-                    and
-                    expr[i:i+2] == "=="
-                ):
+            if (
+                not in_str_at[i]
+                and depth_at[i] == 0
+                and expr[i:i+op_len] == operator
+            ):
 
-                    return (
-                        expr[:i],
-                        expr[i+2:]
-                    )
+                left  = expr[:i]
+                right = expr[i+op_len:]
 
-                elif (
-                    operator != "=="
-                    and
-                    depth == 0
-                    and
-                    expr[i:i+len(operator)] == operator
-                ):
+                # Guard: skip if nothing meaningful
+                # on the left (unary sign).
+                if left.strip():
+                    return (left, right)
 
-                    # Guard: a lone + or - at
-                    # position 0 is a unary sign,
-                    # not a binary operator.  Only
-                    # split when there is a
-                    # non-empty left-hand side.
-                    left = expr[:i]
-
-                    if left.strip():
-
-                        return (
-                            left,
-                            expr[i+len(operator):]
-                        )
-
-            i += 1
+            i -= 1
 
         return None
 
@@ -294,47 +316,92 @@ class Parser:
             )
 
         # FUNCTION CALL
+        # ─────────────────────────────────────────
+        # Guard: only treat expr as a call when
+        # the text before the first ( is a valid
+        # simple identifier.  Without this guard,
+        # an expression like:
+        #
+        #   "rolled" + to_str(score)
+        #
+        # would be mistakenly parsed as a call
+        # with name '"rolled" + to_str' because
+        # expr.index("(") finds the ( inside
+        # to_str, not the start of a call.
+        #
+        # A valid call name: only letters, digits,
+        # underscores, and dots (for future method
+        # syntax).  No spaces, quotes, or operators.
+
         if (
             "(" in expr
             and
             expr.endswith(")")
         ):
 
-            function_name = (
-                expr[:expr.index("(")]
-                .strip()
-            )
+            # Find the FIRST ( at depth 0 that
+            # could open a call argument list.
+            call_open = -1
+            _depth = 0
+            _in_str = False
+            for _i, _ch in enumerate(expr):
+                if _ch == '"':
+                    _in_str = not _in_str
+                elif not _in_str:
+                    if _ch in "([{":
+                        _depth += 1
+                    elif _ch in ")]}":
+                        _depth -= 1
+                    if _ch == "(" and _depth == 1:
+                        call_open = _i
+                        break
 
-            if function_name:
+            if call_open > 0:
 
-                args_string = (
-                    expr[
-                        expr.index("(")+1:-1
-                    ]
+                function_name = (
+                    expr[:call_open].strip()
                 )
 
-                raw_args = (
-                    self.split_arguments(
-                        args_string
+                # Validate: must be a simple
+                # identifier (letters, digits,
+                # underscores only — no operators,
+                # quotes, or whitespace).
+                import re as _re
+                _valid = bool(
+                    _re.match(
+                        r'^[A-Za-z_][A-Za-z0-9_]*$',
+                        function_name
                     )
                 )
 
-                parsed_args = []
+                if _valid:
 
-                for arg in raw_args:
+                    args_string = (
+                        expr[call_open + 1:-1]
+                    )
 
-                    parsed_args.append(
-                        self.parse_expression(
-                            arg,
-                            line
+                    raw_args = (
+                        self.split_arguments(
+                            args_string
                         )
                     )
 
-                return CallNode(
-                    function_name,
-                    parsed_args,
-                    line
-                )
+                    parsed_args = []
+
+                    for arg in raw_args:
+
+                        parsed_args.append(
+                            self.parse_expression(
+                                arg,
+                                line
+                            )
+                        )
+
+                    return CallNode(
+                        function_name,
+                        parsed_args,
+                        line
+                    )
 
         # INDEX CHAIN
         if (
