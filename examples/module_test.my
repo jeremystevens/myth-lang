@@ -1,0 +1,9 @@
+print "=== MODULE TEST ==="
+
+import math_utils
+
+print "Double 10: " + to_str(double(10))
+
+print "Triple 5: " + to_str(triple(5))
+
+print "=== COMPLETE ==="
