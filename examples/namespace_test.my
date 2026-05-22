@@ -1,0 +1,42 @@
+print "=== NAMESPACE TEST ==="
+
+# ── Namespace import: access via module.function() ──────────────
+import mathlib
+
+result = mathlib.double(21)
+print result
+
+result = mathlib.square(7)
+print result
+
+result = mathlib.clamp_score(150)
+print result
+
+# ── No explicit exports → everything is public ───────────────────
+import greetlib
+
+msg = greetlib.greet("Jeremy")
+print msg
+
+msg = greetlib.farewell("Jeremy")
+print msg
+
+msg = greetlib.shout("world")
+print msg
+
+# ── Selective import: from X import Y ────────────────────────────
+from mathlib import double
+from mathlib import triple, square
+
+print double(10)
+print triple(10)
+print square(5)
+
+# ── Selective from no-export module ──────────────────────────────
+from greetlib import greet
+
+greeting = greet("Alice")
+print greeting
+
+# ── Namespace isolation: mathlib._internal_helper not accessible ─
+print "=== COMPLETE ==="

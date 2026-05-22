@@ -1,14 +1,14 @@
 print "=== IMPORT SYSTEM TEST ==="
 
 # -------------------------
-# BASIC IMPORT
+# NAMESPACE IMPORT
 # -------------------------
-# Load functions from greetings.my into global scope
+# import creates a namespace — access via module.function()
 
 import greetings
 
-say_hello("Alice")
-say_goodbye("Bob")
+greetings.say_hello("Alice")
+greetings.say_goodbye("Bob")
 
 # -------------------------
 # SECOND MODULE IMPORT
@@ -16,24 +16,31 @@ say_goodbye("Bob")
 
 import mathutils
 
-result = square(7)
+result = mathutils.square(7)
 print result
 
-result = double(21)
+result = mathutils.double(21)
 print result
 
-result = clamp(150, 0, 100)
-print result
+# -------------------------
+# SELECTIVE IMPORT
+# -------------------------
+# from X import Y brings names directly into scope
+
+from mathutils import double
+from mathutils import double, triple
+
+print double(10)
+print triple(10)
 
 # -------------------------
 # DUPLICATE IMPORT CACHE TEST
 # -------------------------
-# These are silently skipped — greetings and
-# mathutils are already in the import cache
+# Silently skipped — already in the import cache
 
 import greetings
 import mathutils
 
-say_hello("CacheTestPassed")
+greetings.say_hello("CacheTestPassed")
 
 print "=== COMPLETE ==="

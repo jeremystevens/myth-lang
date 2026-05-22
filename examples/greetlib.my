@@ -1,0 +1,13 @@
+# greetlib.my — greeting module, no explicit exports (all public)
+
+function greet name
+    return "Hello, " + name + "!"
+end
+
+function farewell name
+    return "Goodbye, " + name + "."
+end
+
+function shout name
+    return upper("hello " + name)
+end

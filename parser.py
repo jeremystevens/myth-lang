@@ -1065,6 +1065,29 @@ class Parser:
 
             return node
 
+        # FROM ... IMPORT (selective import)
+        elif token.type == "FROM_IMPORT":
+
+            path, names = token.value
+
+            self.advance()
+
+            return FromImportNode(
+                path,
+                names,
+                token.line
+            )
+
+        # EXPORT
+        elif token.type == "EXPORT":
+
+            self.advance()
+
+            return ExportNode(
+                token.value,
+                token.line
+            )
+
         # CALL
         elif token.type == "CALL":
 

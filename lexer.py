@@ -301,7 +301,7 @@ class Lexer:
                     )
                 )
 
-            # IMPORT
+            # IMPORT / FROM ... IMPORT
             elif line.startswith("import "):
 
                 module_path = line[7:].strip()
@@ -310,6 +310,38 @@ class Lexer:
                     Token(
                         "IMPORT",
                         module_path,
+                        line_number
+                    )
+                )
+
+            elif line.startswith("from ") and " import " in line:
+
+                # from utils import double, triple
+                rest        = line[5:]   # "utils import double, triple"
+                path, names = rest.split(" import ", 1)
+                name_list   = [
+                    n.strip()
+                    for n in names.split(",")
+                    if n.strip()
+                ]
+
+                self.tokens.append(
+                    Token(
+                        "FROM_IMPORT",
+                        (path.strip(), name_list),
+                        line_number
+                    )
+                )
+
+            # EXPORT
+            elif line.startswith("export "):
+
+                export_name = line[7:].strip()
+
+                self.tokens.append(
+                    Token(
+                        "EXPORT",
+                        export_name,
                         line_number
                     )
                 )

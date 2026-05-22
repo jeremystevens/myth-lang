@@ -17,3 +17,7 @@ function clamp val lo hi
     end
     return val
 end
+
+function triple n
+    return n + n + n
+end

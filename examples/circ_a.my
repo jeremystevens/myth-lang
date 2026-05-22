@@ -1,0 +1,4 @@
+import circ_b
+function fa n
+    return n + 1
+end

@@ -1,0 +1,27 @@
+# mathlib.my — math utility module with explicit exports
+
+export double
+export triple
+export square
+export clamp_score
+
+function double n
+    return n + n
+end
+
+function triple n
+    return n + n + n
+end
+
+function square n
+    return n * n
+end
+
+# Not exported — private to this module
+function _internal_helper n
+    return n + 1
+end
+
+function clamp_score score
+    return clamp(score, 0, 100)
+end

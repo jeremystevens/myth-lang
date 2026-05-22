@@ -460,8 +460,63 @@ class ImportNode:
 
 
 # ===========================================================================
-# PHASE 5 — OBJECT SYSTEM
+# PHASE 6 — NAMESPACES & MODULES
 # ===========================================================================
+
+
+class FromImportNode:
+    """
+    Selective import — brings specific names into the caller's scope.
+
+      from utils import double
+      from utils import double, triple, square
+
+    Attributes
+    ----------
+    path  : str        — module path (same as ImportNode)
+    names : list[str]  — names to import into the local scope
+    line  : int
+    """
+
+    def __init__(self, path, names, line=None):
+        self.path  = path
+        self.names = names
+        self.line  = line
+
+    def __repr__(self):
+        return (
+            f'FromImportNode("{self.path}", '
+            f'{self.names})'
+        )
+
+
+class ExportNode:
+    """
+    Marks a name as part of this module's public API.
+
+      export double
+      export Player
+
+    Only exported names are visible when a caller does:
+
+      import utils          # → utils.double() works
+                            # → utils._private() fails
+
+    Modules with no export statements export everything
+    (backwards-compatible behaviour).
+
+    Attributes
+    ----------
+    name : str  — the identifier being exported
+    line : int
+    """
+
+    def __init__(self, name, line=None):
+        self.name = name
+        self.line = line
+
+    def __repr__(self):
+        return f'ExportNode("{self.name}")'
 
 
 class ClassNode:

@@ -1,6 +1,7 @@
 from lexer import Lexer
 from parser import Parser
 from ast_interpreter import ASTInterpreter
+from optimizer import ASTOptimiser
 
 from runtime_error import (
     MyLangRuntimeError
@@ -13,22 +14,28 @@ from parser_error import (
 import os
 import sys
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 
-
-# Directory where main.py lives — used to
-# resolve the default script path so the file
-# can be run from any working directory.
 MAIN_DIR = os.path.abspath(
     os.path.dirname(__file__)
 )
 
 # -------------------------
+# FLAGS
+# -------------------------
+
+flags      = [a for a in sys.argv[1:] if a.startswith("--")]
+args       = [a for a in sys.argv[1:] if not a.startswith("--")]
+
+SHOW_BYTECODE = "--bytecode" in flags
+NO_OPTIMISE   = "--no-opt"   in flags
+
+# -------------------------
 # ARGUMENT HANDLING
 # -------------------------
 
-if len(sys.argv) >= 2:
-    arg = sys.argv[1]
+if args:
+    arg = args[0]
     if os.path.isfile(arg):
         SCRIPT = os.path.abspath(arg)
     else:
@@ -39,7 +46,7 @@ else:
     SCRIPT = os.path.join(
         MAIN_DIR,
         "examples",
-        "dictionary_builtin_test.my"
+        "regression_test.my"
     )
 
 if not os.path.isfile(SCRIPT):
@@ -55,7 +62,7 @@ script_dir = os.path.abspath(
     os.path.dirname(SCRIPT)
 )
 
-print(f"MyLang AST v{VERSION}")
+print(f"MyLang v{VERSION}")
 
 try:
 
@@ -63,19 +70,33 @@ try:
     # LEXER
     # -------------------------
 
-    print("\nTOKENS:")
     lexer  = Lexer(code)
     tokens = lexer.tokenize()
-    print(tokens)
 
     # -------------------------
     # PARSER
     # -------------------------
 
-    print("\nAST:")
-    parser = Parser(tokens)
-    ast    = parser.parse()
-    print(ast)
+    parser    = Parser(tokens)
+    ast_nodes = parser.parse()
+
+    # -------------------------
+    # OPTIMISER  (Phase 7)
+    # -------------------------
+
+    if not NO_OPTIMISE:
+        opt       = ASTOptimiser()
+        ast_nodes = opt.optimise(ast_nodes)
+
+    # -------------------------
+    # BYTECODE EXPLORATION
+    # -------------------------
+
+    if SHOW_BYTECODE:
+        from compiler import Compiler
+        chunk = Compiler().compile(ast_nodes)
+        print("\n" + chunk.disassemble())
+        print()
 
     # -------------------------
     # INTERPRETER
@@ -88,15 +109,9 @@ try:
         file_root=script_dir
     )
 
-    # Phase 4: give interpreter the source so
-    # tracebacks can show the actual code lines.
     interpreter.set_source(code, file_path=SCRIPT)
 
-    interpreter.run(ast)
-
-# -------------------------
-# SYNTAX ERRORS
-# -------------------------
+    interpreter.run(ast_nodes)
 
 except MyLangSyntaxError as e:
 
@@ -104,23 +119,14 @@ except MyLangSyntaxError as e:
         e.format_traceback(source_lines)
     )
 
-# -------------------------
-# RUNTIME ERRORS
-# -------------------------
-
 except MyLangRuntimeError as e:
 
-    # Enrich with traceback if not already set
     if not e.traceback and 'interpreter' in dir():
         interpreter._enrich_error(e)
 
     print(
         e.format_traceback(source_lines)
     )
-
-# -------------------------
-# INTERNAL ERRORS
-# -------------------------
 
 except Exception as e:
 
