@@ -12,9 +12,9 @@ function add a b
 
 end
 
-greet "Jeremy"
+greet("Jeremy")
 
-result = add 10 20
+result = add(10, 20)
 
 print result
 

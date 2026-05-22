@@ -1,3 +1,8 @@
+import re
+
+from parser_error import MyLangSyntaxError
+
+
 class Token:
 
     def __init__(
@@ -310,6 +315,17 @@ class Lexer:
                 )
 
             # CALL
+            # ─────────────────────────────────────
+            # A standalone function call on its own
+            # line.  Must have the form:
+            #
+            #   identifier(args)
+            #
+            # `print(...)` is treated as the print
+            # keyword so both styles work:
+            #   print "hello"
+            #   print("hello")
+
             elif (
                 "(" in line
                 and
@@ -331,26 +347,52 @@ class Lexer:
                     ]
                 )
 
-                args = []
+                # ── print(...) → treat as PRINT ──
+                if function_name == "print":
 
-                if args_string.strip():
+                    self.tokens.append(
+                        Token(
+                            "PRINT",
+                            args_string.strip(),
+                            line_number
+                        )
+                    )
 
-                    args = [
-                        arg.strip()
-                        for arg in
-                        args_string.split(",")
-                    ]
+                # ── Validate: name must be an identifier ──
+                elif not re.match(
+                    r'^[A-Za-z_][A-Za-z0-9_]*$',
+                    function_name
+                ):
 
-                self.tokens.append(
-                    Token(
-                        "CALL",
-                        (
-                            function_name,
-                            args
-                        ),
+                    raise MyLangSyntaxError(
+                        f"Invalid function call syntax: "
+                        f"'{function_name}' is not a valid "
+                        f"function name",
                         line_number
                     )
-                )
+
+                else:
+
+                    args = []
+
+                    if args_string.strip():
+
+                        args = [
+                            arg.strip()
+                            for arg in
+                            args_string.split(",")
+                        ]
+
+                    self.tokens.append(
+                        Token(
+                            "CALL",
+                            (
+                                function_name,
+                                args
+                            ),
+                            line_number
+                        )
+                    )
 
             # ASSIGNMENT
             elif "=" in line:
@@ -376,9 +418,43 @@ class Lexer:
             # UNKNOWN
             else:
 
-                raise Exception(
-                    f"Line {line_number}: "
-                    f"Unknown syntax: {line}"
+                # ── Detect BASIC-style bare calls ─────────────────────
+                # Pattern: identifier followed by arguments without parens
+                # e.g.  greet "Jeremy"   add 10 20   length players
+                # Give a specific, actionable error rather than a generic
+                # "Unknown syntax" message.
+
+                _bare_call = re.match(
+                    r'^([A-Za-z_][A-Za-z0-9_]*)\s+(.+)$',
+                    line.strip()
+                )
+
+                if _bare_call:
+
+                    name    = _bare_call.group(1)
+                    raw_args= _bare_call.group(2).strip()
+
+                    # Build a suggested parenthesized call
+                    # Split raw args on spaces for the suggestion
+                    suggested_args = ", ".join(
+                        a for a in raw_args.split()
+                        if a
+                    )
+                    suggestion = (
+                        f"{name}({suggested_args})"
+                    )
+
+                    raise MyLangSyntaxError(
+                        f"Function calls require parentheses.\n"
+                        f"\n"
+                        f"  Invalid:  {line.strip()}\n"
+                        f"  Valid:    {suggestion}",
+                        line_number
+                    )
+
+                raise MyLangSyntaxError(
+                    f"Unknown syntax: {line}",
+                    line_number
                 )
 
         return self.tokens
