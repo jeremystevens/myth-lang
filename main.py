@@ -16,19 +16,31 @@ import sys
 VERSION = "0.8.0"
 
 
+# Directory where main.py lives — used to
+# resolve the default script path so the file
+# can be run from any working directory.
+MAIN_DIR = os.path.abspath(
+    os.path.dirname(__file__)
+)
+
 # -------------------------
 # ARGUMENT HANDLING
 # -------------------------
-#
-# Usage:
-#   python main.py                        — runs the default script
-#   python main.py examples/hello.my     — runs a specific script
-#   python main.py path/to/any/file.my   — runs any .my file
 
 if len(sys.argv) >= 2:
-    SCRIPT = sys.argv[1]
+    arg = sys.argv[1]
+    if os.path.isfile(arg):
+        SCRIPT = os.path.abspath(arg)
+    else:
+        SCRIPT = os.path.abspath(
+            os.path.join(MAIN_DIR, arg)
+        )
 else:
-    SCRIPT = "examples/file_read_write_test.my"
+    SCRIPT = os.path.join(
+        MAIN_DIR,
+        "examples",
+        "dictionary_builtin_test.my"
+    )
 
 if not os.path.isfile(SCRIPT):
     print(f"Error: cannot find script '{SCRIPT}'")
@@ -37,16 +49,13 @@ if not os.path.isfile(SCRIPT):
 with open(SCRIPT, "r") as file:
     code = file.read()
 
-# The directory that holds the script being run
-# is always the first place searched for imports
-# and file IO operations.
+source_lines = code.splitlines()
+
 script_dir = os.path.abspath(
     os.path.dirname(SCRIPT)
 )
 
-print(
-    f"MyLang AST v{VERSION}"
-)
+print(f"MyLang AST v{VERSION}")
 
 try:
 
@@ -55,11 +64,8 @@ try:
     # -------------------------
 
     print("\nTOKENS:")
-
-    lexer = Lexer(code)
-
+    lexer  = Lexer(code)
     tokens = lexer.tokenize()
-
     print(tokens)
 
     # -------------------------
@@ -67,11 +73,8 @@ try:
     # -------------------------
 
     print("\nAST:")
-
     parser = Parser(tokens)
-
-    ast = parser.parse()
-
+    ast    = parser.parse()
     print(ast)
 
     # -------------------------
@@ -85,6 +88,10 @@ try:
         file_root=script_dir
     )
 
+    # Phase 4: give interpreter the source so
+    # tracebacks can show the actual code lines.
+    interpreter.set_source(code, file_path=SCRIPT)
+
     interpreter.run(ast)
 
 # -------------------------
@@ -94,7 +101,7 @@ try:
 except MyLangSyntaxError as e:
 
     print(
-        f"\nSYNTAX ERROR:\n{e}"
+        e.format_traceback(source_lines)
     )
 
 # -------------------------
@@ -103,8 +110,12 @@ except MyLangSyntaxError as e:
 
 except MyLangRuntimeError as e:
 
+    # Enrich with traceback if not already set
+    if not e.traceback and 'interpreter' in dir():
+        interpreter._enrich_error(e)
+
     print(
-        f"\nRUNTIME ERROR:\n{e}"
+        e.format_traceback(source_lines)
     )
 
 # -------------------------

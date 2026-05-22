@@ -1,0 +1,19 @@
+# traceback_test.my — Phase 4 error system test
+
+# Deeply nested function calls
+function level_three n
+    result = bad_function(n)
+    return result
+end
+
+function level_two n
+    return level_three(n + 1)
+end
+
+function level_one n
+    return level_two(n * 2)
+end
+
+# This will produce a deep traceback
+answer = level_one(5)
+print answer

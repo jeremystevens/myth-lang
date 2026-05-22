@@ -1,0 +1,4 @@
+# bad_module.my — intentionally raises an error
+function broken_func x
+    return undefined_var + x
+end

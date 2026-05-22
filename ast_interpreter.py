@@ -1,7 +1,8 @@
 from ast_nodes import *
 
 from runtime_error import (
-    MyLangRuntimeError
+    MyLangRuntimeError,
+    TraceFrame,
 )
 
 import random
@@ -51,6 +52,32 @@ class ASTInterpreter:
         self.return_value = None
 
         # -------------------------
+        # PHASE 4 — ERROR SYSTEM
+        # -------------------------
+        #
+        # _call_stack is maintained on EVERY run,
+        # not just during debug sessions.  This
+        # gives us a full traceback on any runtime
+        # error without needing the debugger.
+        #
+        # _source_lines caches the raw text lines
+        # of the current script so TraceFrames can
+        # show the actual source code.
+        #
+        # _import_stack tracks the chain of import
+        # statements that led to the current module
+        # being executed, so nested import errors
+        # show the full chain.
+        #
+        # _current_file tracks which .my file is
+        # executing in this interpreter instance.
+
+        self._call_stack   = []   # list[TraceFrame]
+        self._source_lines = []   # list[str] — raw lines of current src
+        self._import_stack = []   # list[dict] — {path, line}
+        self._current_file = None # str | None
+
+        # -------------------------
         # DEBUG HOOKS
         # -------------------------
         # Set by the IDE debug runner via
@@ -59,7 +86,6 @@ class ASTInterpreter:
         # runs.
 
         self._debug_controller = None
-        self._call_stack       = []   # list of frame dicts
 
         # Directories searched when resolving an
         # import path.  The caller may pass extra
@@ -401,6 +427,75 @@ class ASTInterpreter:
         self._debug_controller = controller
 
     # -------------------------
+    # PHASE 4 — ERROR HELPERS
+    # -------------------------
+
+    def set_source(self, source: str, file_path: str = None):
+        """
+        Store the raw source text so TraceFrames
+        can show the actual code lines when an
+        error occurs.  Called by the top-level
+        runner before interpreter.run().
+        """
+        self._source_lines = source.splitlines()
+        self._current_file = file_path
+
+    def _snapshot_locals(self) -> dict:
+        """
+        Return a shallow copy of the current
+        variable scope for inclusion in a
+        TraceFrame.  Truncates large values so
+        the snapshot stays readable.
+        """
+        snap = {}
+        for k, v in self.variables.items():
+            snap[k] = v
+        return snap
+
+    def _source_line(self, line_num) -> str:
+        """
+        Return the raw text of a 1-based line
+        number from the cached source, or None.
+        """
+        if (
+            self._source_lines
+            and line_num
+            and 0 < line_num <= len(self._source_lines)
+        ):
+            return self._source_lines[line_num - 1]
+        return None
+
+    def _enrich_error(self, error: MyLangRuntimeError):
+        """
+        Attach the current call stack and import
+        chain to a MyLangRuntimeError before it
+        propagates to the caller.
+
+        The call stack is reversed so the most
+        recent frame comes first in the list
+        (matching Python traceback conventions:
+        outermost → innermost → error site).
+        """
+        if not error.traceback:
+            # Build TraceFrames from _call_stack
+            frames = []
+            for frame_dict in self._call_stack:
+                ln  = frame_dict.get("line", 0)
+                src = self._source_line(ln)
+                frames.append(TraceFrame(
+                    kind            = "function",
+                    name            = frame_dict.get("name", "?"),
+                    line            = ln,
+                    source_line     = src,
+                    file_path       = self._current_file,
+                    locals_snapshot = frame_dict.get("locals", {}),
+                ))
+            error.traceback    = frames
+            error.import_chain = list(self._import_stack)
+
+        return error
+
+    # -------------------------
     # MODULE RESOLUTION
     # -------------------------
 
@@ -538,7 +633,18 @@ class ASTInterpreter:
             _import_cache=self._import_cache
         )
 
-        child.run(ast)
+        # Phase 4: give child its source + import chain
+        child.set_source(source, file_path=abs_path)
+        child._import_stack = list(self._import_stack) + [
+            {"path": raw_path, "line": line or 0}
+        ]
+
+        try:
+            child.run(ast)
+        except MyLangRuntimeError as e:
+            # Enrich with child traceback, then re-raise
+            child._enrich_error(e)
+            raise
 
     # -------------------------
     # TYPE HELPERS
@@ -1917,41 +2023,46 @@ class ASTInterpreter:
 
         old_variables = self.variables.copy()
 
-        for i in range(
-            len(function.params)
-        ):
-
-            param_name = function.params[i]
-
-            param_value = self.evaluate(
-                args[i]
-            )
-
-            self.variables[
-                param_name
-            ] = param_value
-
         self.return_value = None
 
-        # Push call stack frame
-        frame = {
-            "name": name,
-            "line": line or 0,
-            "params": {
-                function.params[i]: self.evaluate(args[i])
-                if i < len(args) else None
-                for i in range(len(function.params))
-            }
+        # ── Phase 4: push frame unconditionally ───────────────────────
+        # Record parameter values as the locals snapshot for this frame.
+        param_locals = {}
+        for i in range(len(function.params)):
+            if i < len(args):
+                try:
+                    param_locals[function.params[i]] = (
+                        self.evaluate(args[i])
+                    )
+                except Exception:
+                    param_locals[function.params[i]] = "?"
+
+        frame_dict = {
+            "name":   name,
+            "line":   line or 0,
+            "locals": param_locals,
+            "params": param_locals,  # alias for IDE debug panel
         }
-        if self._debug_controller is not None:
-            self._call_stack.append(frame)
+        self._call_stack.append(frame_dict)
 
-        self.run(function.body)
+        # Set parameters in the current variables scope
+        for pname, pval in param_locals.items():
+            self.variables[pname] = pval
 
-        # Pop call stack frame
-        if self._debug_controller is not None:
+        try:
+            self.run(function.body)
+        except MyLangRuntimeError as e:
+            # Enrich before propagating
+            self._enrich_error(e)
+            raise
+        finally:
+            # Always pop the frame, even on error
             if self._call_stack:
                 self._call_stack.pop()
+
+        # ── Phase 4: debug controller ─────────────────────────────────
+        if self._debug_controller is not None:
+            pass   # already handled in run() per-node hook
 
         result = self.return_value
 

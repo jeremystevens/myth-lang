@@ -1,0 +1,5 @@
+# import_error_test.my
+import bad_module
+
+result = broken_func(10)
+print result
