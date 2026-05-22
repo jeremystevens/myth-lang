@@ -313,3 +313,34 @@ All notable changes to MyLang are documented here.
 - `MyLangRuntimeError` and `MyLangSyntaxError` exception types
 - `main.py` CLI runner with `--script` argument support
 - REPL (`repl.py`)
+
+---
+
+## v1.2.0
+
+### REPL — Phase 8a: Advanced REPL System
+
+- **Full rewrite of `repl.py`** — 674 lines replacing the original 100-line prototype; now a true interactive development environment
+- **`ReplSession` class** — holds all persistent REPL state; a single `ASTInterpreter` instance lives for the entire session so variables, functions, classes, namespaces, and imported modules all survive between evaluations
+- **Persistent scope** — variables, functions, classes, objects, and namespaces defined in one input are available in all subsequent inputs
+- **Multiline block support** — if / else / while / for / foreach / function / class blocks are collected automatically using a depth counter; `..` prompt shown during continuation; nested blocks handled correctly
+- **Command history** — arrow-key history via `readline`; saved to `~/.mylang/repl_history` across sessions; `readline.set_history_length(500)`
+- **Tab autocomplete** — `ReplCompleter` provides completions for: REPL commands, all built-in functions, session variables, functions, class names, namespace names, and dot-notation namespace members (`utils.<tab>`)
+- **`:variables`** — lists all current session variables with pretty-printed values
+- **`:functions`** — lists all user-defined functions with parameter signatures and definition lines
+- **`:classes`** — lists all defined classes with constructor params and method names
+- **`:modules`** — lists all imported namespaces and their exported names
+- **`:history`** — shows all commands entered this session
+- **`:ast`** — toggles AST display mode; shows the parse tree for every input before executing
+- **`:bytecode`** — toggles bytecode display mode; shows compiled instructions before executing
+- **`:opt`** — toggles optimiser display mode; shows original AST, optimised AST, and fold statistics
+- **`:vm on/off`** — switches execution backend between the AST interpreter and the bytecode VM
+- **`:reset`** — clears all session state (variables, functions, classes, namespaces, history)
+- **`:clear`** — clears the terminal screen
+- **`:help`** — shows a formatted command reference table with current mode status
+- **`:quit`** — exits the REPL (also `Ctrl-D`)
+- **`Ctrl-C`** — cancels current input without ending the session
+- **Error recovery** — all `MyLangRuntimeError` and `MyLangSyntaxError` exceptions are caught and displayed with full formatted tracebacks; session state is fully preserved after any error
+- **`pretty()` function** — custom formatter for lists (compact for short, multiline for long), dicts, `MyLangObject` (shows class name and all properties), `MyLangNamespace` (shows alias and exports), and booleans (`true`/`false`)
+- **Welcome banner** — box-drawn banner showing version, available commands, and keyboard shortcuts
+- **`~/.mylang/`** — home directory is created automatically on first launch for history and future config storage
