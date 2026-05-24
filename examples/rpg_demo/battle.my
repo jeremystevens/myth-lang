@@ -1,0 +1,129 @@
+# ═══════════════════════════════════════════════════════════
+#  battle.my  —  Battle engine and combat resolution
+#  Phase 5: Battle System
+#
+#  Note: All display and helper logic is inlined inside
+#  start_battle to avoid cross-function namespace issues.
+# ═══════════════════════════════════════════════════════════
+
+export start_battle
+
+function start_battle player enemy items_data
+    print ""
+    print "  ╔═══════════════════════════════════════════╗"
+    print "  ║              BATTLE START                 ║"
+    print "  ╚═══════════════════════════════════════════╝"
+    print ""
+    print "  A wild " + enemy.name + " appears!"
+    print "  " + enemy.description
+    print ""
+
+    round = 1
+
+    while player.is_alive() and enemy.is_alive()
+
+        # Round header
+        print "  ── Round " + to_str(round) + " ──────────────────────────────"
+        print ""
+        print "  " + player.name + "  HP: " + to_str(player.hp) + "/" + to_str(player.max_hp)
+        print "  " + enemy.name  + "  " + enemy.hp_bar() + " " + to_str(enemy.hp) + " HP"
+        print ""
+
+        # ── PLAYER DECISION ──────────────────────────────
+        # Auto-combat logic: use healing item if below 40% HP
+        has_potion  = player.has_item("Potion")
+        has_mega    = player.has_item("Mega Potion")
+        has_elixir  = player.has_item("Elixir")
+        can_heal    = has_potion or has_mega or has_elixir
+
+        temp_danger = player.max_hp * 4
+        danger_hp   = temp_danger / 10
+
+        temp_crit   = player.max_hp * 2
+        critical_hp = temp_crit / 10
+
+        action = "attack"
+
+        if player.hp < danger_hp and can_heal
+            if has_elixir
+                action = "elixir"
+            else
+                if has_mega
+                    action = "mega"
+                else
+                    action = "potion"
+                end
+            end
+        else
+            if player.hp < critical_hp and not can_heal
+                action = "flee"
+            end
+        end
+
+        # ── EXECUTE PLAYER ACTION ────────────────────────
+        if action == "attack"
+            dmg = player.strike()
+            enemy.take_damage(dmg)
+            print "  › You strike " + enemy.name + " for " + to_str(dmg) + " damage!"
+
+        else
+            if action == "potion"
+                player.heal(30)
+                player.remove_item("Potion")
+                print "  › You drink a Potion!  HP → " + to_str(player.hp) + "/" + to_str(player.max_hp)
+
+            else
+                if action == "mega"
+                    player.heal(70)
+                    player.remove_item("Mega Potion")
+                    print "  › You drink a Mega Potion!  HP → " + to_str(player.hp) + "/" + to_str(player.max_hp)
+
+                else
+                    if action == "elixir"
+                        player.heal(999)
+                        player.remove_item("Elixir")
+                        print "  › You drink an Elixir!  Full HP restored!"
+
+                    else
+                        if action == "flee"
+                            flee_roll = random(1, 4)
+                            if flee_roll > 2
+                                print "  › You successfully flee!"
+                                return "fled"
+                            else
+                                print "  › Couldn't escape!"
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        # ── ENEMY TURN ───────────────────────────────────
+        if enemy.is_alive()
+            enemy_dmg  = enemy.strike()
+            actual_dmg = player.take_damage(enemy_dmg)
+            print "  › " + enemy.name + " strikes you for " + to_str(actual_dmg) + " damage!"
+        end
+
+        print "  · · · · · · · · · · · · · · · · · · · ·"
+        round = round + 1
+    end
+
+    # ── OUTCOME ──────────────────────────────────────────
+    if player.is_alive()
+        print ""
+        print "  ✓  " + enemy.name + " defeated!"
+        player.gain_xp(enemy.xp_reward)
+        player.add_gold(enemy.gold_reward)
+        player.kills = player.kills + 1
+        print "  ✦  +" + to_str(enemy.xp_reward) + " XP   +" + to_str(enemy.gold_reward) + " gold"
+        print ""
+        return "victory"
+    else
+        print ""
+        print "  ✗  You have been defeated..."
+        print ""
+        return "defeat"
+    end
+end

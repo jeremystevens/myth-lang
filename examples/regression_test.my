@@ -94,7 +94,7 @@ function greet person
 
 end
 
-greet ("Alice")
+greet("Alice")
 
 function add a b
 

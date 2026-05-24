@@ -1,0 +1,62 @@
+print "=== JSON TEST ==="
+
+# ── Build data with MyLang and convert to JSON ────────────────────────────
+player = {"name": "Jeremy", "hp": 100, "active": true}
+
+json_text = to_json(player)
+print json_text
+
+# ── Parse it back ─────────────────────────────────────────────────────────
+restored = parse_json(json_text)
+print restored["name"]
+print restored["hp"]
+print restored["active"]
+
+# ── Pretty print ──────────────────────────────────────────────────────────
+pretty = to_json(player, true)
+print pretty
+
+# ── Nested data ───────────────────────────────────────────────────────────
+party = [{"name": "Alice", "level": 5}, {"name": "Bob", "level": 3}]
+party_json = to_json(party)
+party_back = parse_json(party_json)
+print length(party_back)
+print party_back[0]["name"]
+print party_back[1]["level"]
+
+# ── Round-trip with arrays ────────────────────────────────────────────────
+scores = {"player": "Alice", "scores": [10, 20, 30, 40]}
+encoded = to_json(scores)
+decoded = parse_json(encoded)
+print decoded["player"]
+print last(decoded["scores"])
+
+# ── save_json and load_json ───────────────────────────────────────────────
+config = {"fullscreen": false, "volume": 80, "theme": "dark"}
+save_json("test_config.json", config)
+
+loaded = load_json("test_config.json")
+print loaded["theme"]
+print loaded["volume"]
+print loaded["fullscreen"]
+
+delete_file("test_config.json")
+
+# ── Nested save/load round-trip ───────────────────────────────────────────
+world = {
+    "map": "dungeon_01",
+    "players": [{"name": "Knight", "hp": 100}, {"name": "Mage", "hp": 60}],
+    "turn": 42
+}
+
+save_json("world.json", world)
+world_back = load_json("world.json")
+
+print world_back["map"]
+print world_back["turn"]
+print world_back["players"][0]["name"]
+print world_back["players"][1]["hp"]
+
+delete_file("world.json")
+
+print "=== COMPLETE ==="

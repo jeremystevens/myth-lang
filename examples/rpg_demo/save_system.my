@@ -1,0 +1,72 @@
+# ═══════════════════════════════════════════════════════════
+#  save_system.my  —  JSON save and load system
+#  Phase 6: Save System
+#
+#  Demonstrates: save_json, load_json, to_json, parse_json
+#  and structured data persistence.
+#
+#  Note: All functions inline the save path string directly
+#  to avoid cross-function namespace call issues.
+# ═══════════════════════════════════════════════════════════
+
+export save_exists
+export save_game
+export load_game
+export delete_save
+
+# ───────────────────────────────────────────────────────────
+# CHECK — does a save file exist?
+# ───────────────────────────────────────────────────────────
+
+function save_exists()
+    return file_exists("saves/savegame.json")
+end
+
+# ───────────────────────────────────────────────────────────
+# SAVE — serialize player state to JSON
+# ───────────────────────────────────────────────────────────
+
+function save_game player floor_number
+    data = {
+        "name":      player.name,
+        "hp":        player.hp,
+        "max_hp":    player.max_hp,
+        "attack":    player.attack,
+        "defense":   player.defense,
+        "gold":      player.gold,
+        "level":     player.level,
+        "xp":        player.xp,
+        "xp_needed": player.xp_needed,
+        "kills":     player.kills,
+        "inventory": player.inventory,
+        "floor":     floor_number
+    }
+    save_json("saves/savegame.json", data)
+    print "  💾  Game saved — Floor " + to_str(floor_number)
+end
+
+# ───────────────────────────────────────────────────────────
+# LOAD — read and return the save data dict
+# Inlines the existence check to avoid cross-function calls
+# ───────────────────────────────────────────────────────────
+
+function load_game()
+    if not file_exists("saves/savegame.json")
+        print "  No save file found."
+        return {}
+    end
+    data = load_json("saves/savegame.json")
+    print "  📂  Save loaded — " + data["name"] + "  Floor " + to_str(data["floor"])
+    return data
+end
+
+# ───────────────────────────────────────────────────────────
+# DELETE — remove the save file
+# ───────────────────────────────────────────────────────────
+
+function delete_save()
+    if file_exists("saves/savegame.json")
+        delete_file("saves/savegame.json")
+        print "  Save file deleted."
+    end
+end

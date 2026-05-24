@@ -1,0 +1,282 @@
+# ═══════════════════════════════════════════════════════════
+#  main.my  —  MYTH RPG Demo  Entry Point
+#  Phase 8: Main Game Loop
+#
+#  PROJECT STRUCTURE:
+#    main.my        — game loop and orchestration
+#    player.my      — Player class
+#    enemy.my       — Enemy class + pick_random helper
+#    battle.my      — combat engine
+#    inventory.my   — item system + shop
+#    save_system.my — JSON persistence
+#    ui.my          — terminal display helpers
+#    data/          — enemies.json, items.json
+#    config.json    — game settings
+#    saves/         — savegame.json (created at runtime)
+# ═══════════════════════════════════════════════════════════
+
+# ───────────────────────────────────────────────────────────
+# IMPORTS  (Phase 6 namespace system)
+# ───────────────────────────────────────────────────────────
+
+import ui
+import player
+import enemy
+import battle
+import inventory
+import save_system
+
+# ───────────────────────────────────────────────────────────
+# LOAD CONFIG + DATA FILES  (Phase 9 JSON)
+# ───────────────────────────────────────────────────────────
+
+config       = load_json("config.json")
+items_data   = load_json("data/items.json")
+enemies_data = load_json("data/enemies.json")
+
+# ───────────────────────────────────────────────────────────
+# TITLE SCREEN
+# ───────────────────────────────────────────────────────────
+
+ui.draw_double_divider()
+print ""
+print "         ███╗   ███╗██╗   ██╗████████╗██╗  ██╗"
+print "         ████╗ ████║╚██╗ ██╔╝╚══██╔══╝██║  ██║"
+print "         ██╔████╔██║ ╚████╔╝    ██║   ███████║"
+print "         ██║╚██╔╝██║  ╚██╔╝     ██║   ██╔══██║"
+print "         ██║ ╚═╝ ██║   ██║      ██║   ██║  ██║"
+print "         ╚═╝     ╚═╝   ╚═╝      ╚═╝   ╚═╝  ╚═╝"
+print ""
+print "                    R P G   D E M O"
+print "             A MYTH Language Showcase"
+print "                   v" + config["version"]
+print ""
+ui.draw_double_divider()
+print ""
+print "  Demonstrating:"
+print "    · Classes · Methods · Namespaces · Modules"
+print "    · JSON Persistence · File I/O · Collections"
+print "    · Loops · Conditionals · Object Mutation"
+print ""
+ui.draw_divider()
+print ""
+
+# ───────────────────────────────────────────────────────────
+# MAIN MENU
+# ───────────────────────────────────────────────────────────
+
+has_save = save_system.save_exists()
+
+if has_save
+    print "  [1] New Game"
+    print "  [2] Load Game"
+    print "  [3] Quit"
+else
+    print "  [1] New Game"
+    print "  [2] Quit"
+end
+
+print ""
+
+# ───────────────────────────────────────────────────────────
+# CREATE OR LOAD PLAYER
+# Player class is instantiated directly via namespace:
+#   hero = player.Player(name, hp, attack, defense, gold)
+# ───────────────────────────────────────────────────────────
+
+start_hp      = config["starting_hp"]
+start_attack  = config["starting_attack"]
+start_defense = config["starting_defense"]
+start_gold    = config["starting_gold"]
+
+hero         = player.Player("Aldric", start_hp, start_attack, start_defense, start_gold)
+floor_number = 1
+
+save_data = {}
+if has_save
+    print "  → Save detected — loading game..."
+    save_data = save_system.load_game()
+end
+
+save_len = length(save_data)
+if save_len > 0
+    hero.name      = save_data["name"]
+    hero.hp        = save_data["hp"]
+    hero.max_hp    = save_data["max_hp"]
+    hero.attack    = save_data["attack"]
+    hero.defense   = save_data["defense"]
+    hero.gold      = save_data["gold"]
+    hero.level     = save_data["level"]
+    hero.xp        = save_data["xp"]
+    hero.xp_needed = save_data["xp_needed"]
+    hero.kills     = save_data["kills"]
+    hero.inventory = save_data["inventory"]
+    floor_number   = save_data["floor"]
+end
+
+if not has_save
+    print "  → Starting new adventure..."
+end
+
+print ""
+ui.draw_title("Welcome, " + hero.name + "!")
+print ""
+print "  " + hero.get_status()
+print ""
+
+# ───────────────────────────────────────────────────────────
+# GAME LOOP  —  one iteration per dungeon floor
+# ───────────────────────────────────────────────────────────
+
+max_floors   = 5
+game_running = true
+
+while game_running and floor_number < max_floors + 1 and hero.is_alive()
+
+    ui.draw_subtitle("FLOOR " + to_str(floor_number) + " of " + to_str(max_floors))
+    print ""
+
+    # ── SHOP ON FLOORS 2 AND 4 ───────────────────────────
+    if floor_number == 2 or floor_number == 4
+        inventory.show_shop(hero, items_data)
+        print "  → Browsing the merchant's wares..."
+        print ""
+
+        hp_pct = hero.get_hp_pct()
+
+        if hp_pct < 60
+            bought = inventory.buy_item(hero, "Mega Potion", items_data)
+            if not bought
+                inventory.buy_item(hero, "Potion", items_data)
+            end
+        end
+
+        if hero.gold > 79
+            inventory.buy_item(hero, "Elixir", items_data)
+        end
+
+        print ""
+        inventory.show_inventory(hero, items_data)
+    end
+
+    # ── SPAWN ENEMY FROM JSON DATA ────────────────────────
+    # Demonstrates: load_json, list indexing, dict access,
+    # class instantiation via namespace
+    enemy_data = enemy.pick_random(enemies_data)
+
+    curr_enemy = enemy.Enemy(
+        enemy_data["name"],
+        enemy_data["hp"],
+        enemy_data["attack"],
+        enemy_data["xp_reward"],
+        enemy_data["gold_reward"],
+        enemy_data["description"]
+    )
+
+    print "  Entering floor " + to_str(floor_number) + "..."
+    print ""
+
+    # ── COMBAT ───────────────────────────────────────────
+    result = battle.start_battle(hero, curr_enemy, items_data)
+
+    if result == "victory"
+        leveled = hero.gain_xp(0)
+        if leveled
+            ui.announce("LEVEL UP!  Now level " + to_str(hero.level) + "!")
+            print "    Attack +" + to_str(hero.attack) + "  Defense +" + to_str(hero.defense) + "  Max HP +" + to_str(hero.max_hp)
+        end
+
+        print ""
+        print "  " + hero.get_status()
+        print ""
+
+        save_system.save_game(hero, floor_number + 1)
+        floor_number = floor_number + 1
+
+    else
+        if result == "defeat"
+            game_running = false
+        else
+            if result == "fled"
+                ui.announce("Escaped to the next floor!")
+                floor_number = floor_number + 1
+                save_system.save_game(hero, floor_number)
+            end
+        end
+    end
+
+end
+
+# ───────────────────────────────────────────────────────────
+# ENDING
+# ───────────────────────────────────────────────────────────
+
+print ""
+
+if hero.is_alive() and floor_number > max_floors
+
+    ui.draw_double_divider()
+    print ""
+    print "             ★  DUNGEON CLEARED!  ★"
+    print ""
+    ui.draw_double_divider()
+    print ""
+    print "  " + hero.name + " conquers all " + to_str(max_floors) + " floors!"
+    print ""
+
+    inventory.show_inventory(hero, items_data)
+
+    ui.draw_subtitle("FINAL STATS")
+    ui.draw_stat_row("Name",       hero.name)
+    ui.draw_stat_row("Level",      hero.level)
+    ui.draw_stat_row("Enemies Slain", hero.kills)
+    ui.draw_stat_row("Gold",       hero.gold)
+    ui.draw_stat_row("XP",         hero.xp)
+    ui.draw_stat_row("Attack",     hero.attack)
+    ui.draw_stat_row("Defense",    hero.defense)
+    print ""
+    ui.draw_bar("Final HP", hero.hp, hero.max_hp)
+    print ""
+
+    # ── JSON SERIALIZATION SHOWCASE ───────────────────────
+    # Demonstrates: to_json with pretty=true
+    final_score = {
+        "hero":    hero.name,
+        "level":   hero.level,
+        "kills":   hero.kills,
+        "gold":    hero.gold,
+        "xp":      hero.xp,
+        "cleared": true
+    }
+
+    score_json = to_json(final_score, true)
+    ui.draw_subtitle("SCORE — JSON OUTPUT")
+    print score_json
+    print ""
+
+    save_system.delete_save()
+
+else
+
+    if not hero.is_alive()
+        ui.draw_double_divider()
+        print ""
+        print "             ✗  GAME OVER  ✗"
+        print ""
+        ui.draw_double_divider()
+        print ""
+        print "  " + hero.name + " fell on floor " + to_str(floor_number) + "."
+        print "  Floors cleared: " + to_str(floor_number - 1)
+        print "  Enemies slain:  " + to_str(hero.kills)
+        print ""
+        save_system.delete_save()
+    end
+
+end
+
+ui.draw_double_divider()
+print ""
+print "  Thanks for playing the MYTH RPG Demo!"
+print "  Built with MYTH Lang v1.4.0"
+print ""
+ui.draw_double_divider()

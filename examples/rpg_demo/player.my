@@ -1,0 +1,114 @@
+# ═══════════════════════════════════════════════════════════
+#  player.my  —  Player class
+#  Phase 2: Player System
+#
+#  Usage from main.my:
+#    import player
+#    hero = player.Player("Aldric", 80, 10, 2, 30)
+# ═══════════════════════════════════════════════════════════
+
+export Player
+
+class Player
+    init name hp attack defense gold
+        this.name      = name
+        this.hp        = hp
+        this.max_hp    = hp
+        this.attack    = attack
+        this.defense   = defense
+        this.gold      = gold
+        this.level     = 1
+        this.xp        = 0
+        this.xp_needed = 25
+        this.inventory = []
+        this.alive     = true
+        this.kills     = 0
+    end
+
+    # ── Combat ─────────────────────────────────────────────
+
+    method take_damage amount
+        actual = amount - this.defense
+        if actual < 1
+            actual = 1
+        end
+        this.hp = this.hp - actual
+        if this.hp < 1
+            this.hp    = 0
+            this.alive = false
+        end
+        return actual
+    end
+
+    method heal amount
+        this.hp = this.hp + amount
+        if this.hp > this.max_hp
+            this.hp = this.max_hp
+        end
+    end
+
+    method strike()
+        variance = random(0, 4)
+        return this.attack + variance
+    end
+
+    # ── Progression ────────────────────────────────────────
+
+    method gain_xp amount
+        this.xp = this.xp + amount
+        leveled = false
+        while this.xp > this.xp_needed
+            this.xp      = this.xp - this.xp_needed
+            this.level   = this.level + 1
+            this.max_hp  = this.max_hp + 15
+            this.hp      = this.hp + 15
+            this.attack  = this.attack + 2
+            this.defense = this.defense + 1
+            this.xp_needed = this.xp_needed + 10
+            leveled = true
+        end
+        return leveled
+    end
+
+    method add_gold amount
+        this.gold = this.gold + amount
+    end
+
+    method spend_gold amount
+        if this.gold < amount
+            return false
+        end
+        this.gold = this.gold - amount
+        return true
+    end
+
+    # ── Inventory ──────────────────────────────────────────
+
+    method add_item item_name
+        this.inventory = append(this.inventory, item_name)
+    end
+
+    method has_item item_name
+        return contains_item(this.inventory, item_name)
+    end
+
+    method remove_item item_name
+        this.inventory = remove(this.inventory, item_name)
+    end
+
+    # ── Status ─────────────────────────────────────────────
+
+    method is_alive()
+        return this.alive
+    end
+
+    method get_hp_pct()
+        temp_pct = this.hp * 100
+        pct      = temp_pct / this.max_hp
+        return pct
+    end
+
+    method get_status()
+        return this.name + "  LVL:" + to_str(this.level) + "  HP:" + to_str(this.hp) + "/" + to_str(this.max_hp) + "  ATK:" + to_str(this.attack) + "  DEF:" + to_str(this.defense) + "  GOLD:" + to_str(this.gold)
+    end
+end

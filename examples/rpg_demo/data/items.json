@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Potion",
+    "type": "consumable",
+    "effect": "heal",
+    "value": 30,
+    "cost": 15,
+    "description": "Restores 30 HP."
+  },
+  {
+    "name": "Mega Potion",
+    "type": "consumable",
+    "effect": "heal",
+    "value": 70,
+    "cost": 35,
+    "description": "Restores 70 HP."
+  },
+  {
+    "name": "Elixir",
+    "type": "consumable",
+    "effect": "heal",
+    "value": 999,
+    "cost": 80,
+    "description": "Fully restores HP."
+  }
+]

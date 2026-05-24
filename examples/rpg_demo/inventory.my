@@ -1,0 +1,138 @@
+# ═══════════════════════════════════════════════════════════
+#  inventory.my  —  Inventory display and item system
+#  Phase 4: Inventory System
+#
+#  Note: Item lookup logic is inlined in each function
+#  to avoid cross-function namespace call issues.
+# ═══════════════════════════════════════════════════════════
+
+export show_inventory
+export use_item
+export buy_item
+export show_shop
+
+# ───────────────────────────────────────────────────────────
+# SHOW INVENTORY
+# ───────────────────────────────────────────────────────────
+
+function show_inventory player items_data
+    print ""
+    print "  ┌─────────────────────────────────────────────┐"
+    print "  │                INVENTORY                    │"
+    print "  ├─────────────────────────────────────────────┤"
+
+    if length(player.inventory) == 0
+        print "  │  (empty)                                    │"
+    else
+        foreach item_name in player.inventory
+            # Inline lookup
+            found_desc = ""
+            foreach item in items_data
+                if item["name"] == item_name
+                    found_desc = item["description"]
+                end
+            end
+            if length(found_desc) > 0
+                print "  │  · " + item_name + "  —  " + found_desc
+            else
+                print "  │  · " + item_name
+            end
+        end
+    end
+
+    print "  ├─────────────────────────────────────────────┤"
+    print "  │  Gold: " + to_str(player.gold) + "                                 │"
+    print "  └─────────────────────────────────────────────┘"
+    print ""
+end
+
+# ───────────────────────────────────────────────────────────
+# USE ITEM
+# ───────────────────────────────────────────────────────────
+
+function use_item player item_name items_data
+    if not player.has_item(item_name)
+        print "  You don't have a " + item_name + "."
+        return false
+    end
+
+    # Inline item lookup
+    found_effect = ""
+    found_value  = 0
+
+    foreach item in items_data
+        if item["name"] == item_name
+            found_effect = item["effect"]
+            found_value  = item["value"]
+        end
+    end
+
+    if length(found_effect) == 0
+        print "  Unknown item: " + item_name
+        return false
+    end
+
+    if found_effect == "heal"
+        before = player.hp
+        player.heal(found_value)
+        healed = player.hp - before
+        print "  ♥  Used " + item_name + "  →  +" + to_str(healed) + " HP  (now: " + to_str(player.hp) + "/" + to_str(player.max_hp) + ")"
+        player.remove_item(item_name)
+        return true
+    end
+
+    print "  Nothing happened."
+    return false
+end
+
+# ───────────────────────────────────────────────────────────
+# SHOW SHOP
+# ───────────────────────────────────────────────────────────
+
+function show_shop player items_data
+    print ""
+    print "  ┌─────────────────────────────────────────────┐"
+    print "  │            WANDERING MERCHANT               │"
+    print "  ├─────────────────────────────────────────────┤"
+    print "  │  Your gold: " + to_str(player.gold)
+    print "  ├─────────────────────────────────────────────┤"
+    i = 1
+    foreach item in items_data
+        print "  │  [" + to_str(i) + "] " + item["name"] + "  (" + to_str(item["cost"]) + "g)  " + item["description"]
+        i = i + 1
+    end
+    print "  └─────────────────────────────────────────────┘"
+    print ""
+end
+
+# ───────────────────────────────────────────────────────────
+# BUY ITEM
+# ───────────────────────────────────────────────────────────
+
+function buy_item player item_name items_data
+    # Inline item lookup
+    found_cost = 0
+    found      = false
+
+    foreach item in items_data
+        if item["name"] == item_name
+            found_cost = item["cost"]
+            found      = true
+        end
+    end
+
+    if not found
+        print "  Item not found: " + item_name
+        return false
+    end
+
+    spent = player.spend_gold(found_cost)
+    if not spent
+        print "  Not enough gold! Need " + to_str(found_cost) + "g, have " + to_str(player.gold) + "g."
+        return false
+    end
+
+    player.add_item(item_name)
+    print "  Purchased: " + item_name + "  (-" + to_str(found_cost) + "g)  Gold remaining: " + to_str(player.gold)
+    return true
+end

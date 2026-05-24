@@ -1,0 +1,10 @@
+{
+  "game_title": "MYTH RPG DEMO",
+  "version": "1.0",
+  "starting_hp": 80,
+  "starting_gold": 30,
+  "starting_attack": 10,
+  "starting_defense": 2,
+  "xp_per_level": 25,
+  "difficulty": "normal"
+}

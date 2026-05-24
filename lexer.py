@@ -3,6 +3,38 @@ import re
 from parser_error import MyLangSyntaxError
 
 
+def _split_args(args_string):
+    """
+    Split a comma-separated argument string respecting:
+    - quoted strings  ("hello, world" is one arg)
+    - nested brackets ( foo(a, b), c  →  two args )
+    """
+    args      = []
+    current   = ""
+    depth     = 0
+    in_string = False
+
+    for ch in args_string:
+        if ch == '"':
+            in_string = not in_string
+        if not in_string:
+            if ch in "([{":
+                depth += 1
+            elif ch in ")]}":
+                depth -= 1
+        if ch == "," and depth == 0 and not in_string:
+            if current.strip():
+                args.append(current.strip())
+            current = ""
+        else:
+            current += ch
+
+    if current.strip():
+        args.append(current.strip())
+
+    return args
+
+
 class Token:
 
     def __init__(
@@ -463,11 +495,7 @@ class Lexer:
 
                     args = []
                     if args_string.strip():
-                        args = [
-                            arg.strip()
-                            for arg in
-                            args_string.split(",")
-                        ]
+                        args = _split_args(args_string)
 
                     self.tokens.append(
                         Token(
@@ -496,11 +524,7 @@ class Lexer:
 
                     if args_string.strip():
 
-                        args = [
-                            arg.strip()
-                            for arg in
-                            args_string.split(",")
-                        ]
+                        args = _split_args(args_string)
 
                     self.tokens.append(
                         Token(

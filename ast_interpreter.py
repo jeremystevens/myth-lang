@@ -9,6 +9,11 @@ from runtime_error import (
 import random
 import os
 
+# Phase 9 fix: sentinel object so return False / return 0
+# are not mistaken for "no return value pending"
+_NO_RETURN = object()
+
+
 
 # ===========================================================================
 # PHASE 5 — MYLANG OBJECT RUNTIME
@@ -121,7 +126,7 @@ class ASTInterpreter:
             self._import_cache = _import_cache
 
         self.variables = {}
-        self.return_value = None
+        self.return_value = _NO_RETURN
 
         # -------------------------
         # PHASE 6 — NAMESPACES
@@ -1028,7 +1033,7 @@ class ASTInterpreter:
         for i, pname in enumerate(method.params):
             self.variables[pname] = evaluated_args[i]
 
-        self.return_value = None
+        self.return_value = _NO_RETURN
 
         # Push call stack frame for Phase 4 tracing
         frame_dict = {
@@ -1049,6 +1054,8 @@ class ASTInterpreter:
                 self._call_stack.pop()
 
         result = self.return_value
+        if result is _NO_RETURN:
+            result = None
 
         # Restore caller scope but keep any mutations
         # to the object's properties (they live on the
@@ -2724,7 +2731,9 @@ class ASTInterpreter:
 
         old_variables = self.variables.copy()
 
-        self.return_value = None
+        # Save the caller's return_value and reset for this call
+        saved_return      = self.return_value
+        self.return_value = _NO_RETURN
 
         # ── Phase 4: push frame unconditionally ───────────────────────
         # Record parameter values as the locals snapshot for this frame.
@@ -2766,8 +2775,12 @@ class ASTInterpreter:
             pass   # already handled in run() per-node hook
 
         result = self.return_value
+        if result is _NO_RETURN:
+            result = None
 
-        self.variables = old_variables
+        # Restore caller's scope and return_value
+        self.variables    = old_variables
+        self.return_value = saved_return
 
         return result
 
@@ -2832,7 +2845,7 @@ class ASTInterpreter:
                         node.body
                     )
 
-                    if self.return_value is not None:
+                    if self.return_value is not _NO_RETURN:
                         return
 
             # FOR
@@ -2870,7 +2883,7 @@ class ASTInterpreter:
                         node.body
                     )
 
-                    if self.return_value is not None:
+                    if self.return_value is not _NO_RETURN:
                         return
 
             # INDEX ASSIGN
@@ -2982,7 +2995,7 @@ class ASTInterpreter:
                     )
 
                 # Propagate return if the branch returned
-                if self.return_value is not None:
+                if self.return_value is not _NO_RETURN:
                     return
 
             # WHILE
@@ -2997,7 +3010,7 @@ class ASTInterpreter:
                     )
 
                     # Propagate return from inside while
-                    if self.return_value is not None:
+                    if self.return_value is not _NO_RETURN:
                         return
 
             # IMPORT  →  namespace mode

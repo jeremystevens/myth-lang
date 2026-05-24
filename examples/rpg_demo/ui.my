@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════════════
+#  ui.my  —  Terminal UI helpers for MYTH RPG Demo
+#  Phase 1: UI Foundation
+#
+#  Note: All functions are exported so they can be called
+#  from both main.my and from each other within this module.
+# ═══════════════════════════════════════════════════════════
+
+export draw_divider
+export draw_double_divider
+export draw_title
+export draw_subtitle
+export print_blank
+export draw_stat_row
+export draw_bar
+export print_menu
+export announce
+
+# ───────────────────────────────────────────────────────────
+# DIVIDERS
+# ───────────────────────────────────────────────────────────
+
+function draw_divider()
+    print "  ─────────────────────────────────────────────"
+end
+
+function draw_double_divider()
+    print "  ═════════════════════════════════════════════"
+end
+
+# ───────────────────────────────────────────────────────────
+# TITLES  —  Inlined dividers to avoid cross-function calls
+# ───────────────────────────────────────────────────────────
+
+function draw_title text
+    print "  ═════════════════════════════════════════════"
+    print "    " + upper(text)
+    print "  ═════════════════════════════════════════════"
+end
+
+function draw_subtitle text
+    print ""
+    print "  ─────────────────────────────────────────────"
+    print "    " + text
+    print "  ─────────────────────────────────────────────"
+end
+
+# ───────────────────────────────────────────────────────────
+# SPACING
+# ───────────────────────────────────────────────────────────
+
+function print_blank()
+    print ""
+end
+
+# ───────────────────────────────────────────────────────────
+# STAT DISPLAY
+# ───────────────────────────────────────────────────────────
+
+function draw_stat_row label value
+    print "    " + label + ": " + to_str(value)
+end
+
+function draw_bar label current maximum
+    temp_fill = current * 20
+    filled    = temp_fill / maximum
+    bar       = ""
+    i         = 0
+    while i < 20
+        if i < filled
+            bar = bar + "█"
+        else
+            bar = bar + "░"
+        end
+        i = i + 1
+    end
+    print "    " + label + " [" + bar + "] " + to_str(current) + "/" + to_str(maximum)
+end
+
+# ───────────────────────────────────────────────────────────
+# MENU
+# ───────────────────────────────────────────────────────────
+
+function print_menu options
+    print ""
+    i = 1
+    foreach opt in options
+        print "    [" + to_str(i) + "] " + opt
+        i = i + 1
+    end
+    print ""
+end
+
+# ───────────────────────────────────────────────────────────
+# ANNOUNCEMENT
+# ───────────────────────────────────────────────────────────
+
+function announce text
+    print ""
+    print "  ★  " + text
+    print ""
+end

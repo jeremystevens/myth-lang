@@ -1,0 +1,71 @@
+# ═══════════════════════════════════════════════════════════
+#  enemy.my  —  Enemy class and generation helpers
+#  Phase 3: Enemy System
+#
+#  Usage from main.my:
+#    import enemy
+#    e = enemy.Enemy("Goblin", 22, 6, 14, 10, "Small and mean")
+#    data = enemy.pick_random(enemies_data)
+# ═══════════════════════════════════════════════════════════
+
+export pick_random
+export Enemy
+
+class Enemy
+    init name hp attack xp_reward gold_reward description
+        this.name        = name
+        this.hp          = hp
+        this.max_hp      = hp
+        this.attack      = attack
+        this.xp_reward   = xp_reward
+        this.gold_reward = gold_reward
+        this.description = description
+        this.alive       = true
+    end
+
+    method take_damage amount
+        this.hp = this.hp - amount
+        if this.hp < 1
+            this.hp    = 0
+            this.alive = false
+        end
+    end
+
+    method strike()
+        variance = random(0, 3)
+        return this.attack + variance
+    end
+
+    method is_alive()
+        return this.alive
+    end
+
+    method get_status()
+        return this.name + " HP:" + to_str(this.hp) + "/" + to_str(this.max_hp)
+    end
+
+    method hp_bar()
+        temp_fill = this.hp * 16
+        filled    = temp_fill / this.max_hp
+        bar    = ""
+        i      = 0
+        while i < 16
+            if i < filled
+                bar = bar + "▓"
+            else
+                bar = bar + "░"
+            end
+            i = i + 1
+        end
+        return "[" + bar + "]"
+    end
+end
+
+# ───────────────────────────────────────────────────────────
+# Returns a random enemy data dict from the loaded list
+# ───────────────────────────────────────────────────────────
+
+function pick_random enemy_list
+    idx = random(0, length(enemy_list) - 1)
+    return enemy_list[idx]
+end

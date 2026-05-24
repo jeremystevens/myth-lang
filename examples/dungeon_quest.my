@@ -1,0 +1,564 @@
+# ═══════════════════════════════════════════════════════════
+#  DUNGEON QUEST  —  A MYTH Lang showcase program
+#  Demonstrates: classes, methods, objects, loops,
+#  conditionals, functions, lists, dicts, file I/O,
+#  JSON persistence, string ops, and math builtins
+# ═══════════════════════════════════════════════════════════
+
+# ───────────────────────────────────────────────────────────
+# UTILITY FUNCTIONS
+# ───────────────────────────────────────────────────────────
+
+function separator()
+    print "───────────────────────────────────────────"
+end
+
+function banner title
+    separator()
+    print "  " + title
+    separator()
+end
+
+function roll_dice sides
+    return random(1, sides)
+end
+
+function clamp_hp hp max_hp
+    if hp > max_hp
+        return max_hp
+    end
+    if hp < 0
+        return 0
+    end
+    return hp
+end
+
+function pad_number n width
+    s = to_str(n)
+    padded = s
+    while length(padded) < width
+        padded = " " + padded
+    end
+    return padded
+end
+
+# ───────────────────────────────────────────────────────────
+# HERO CLASS
+# ───────────────────────────────────────────────────────────
+
+class Hero
+    init name class_name hp attack defense gold xp
+        this.name       = name
+        this.class_name = class_name
+        this.hp         = hp
+        this.max_hp     = hp
+        this.attack     = attack
+        this.defense    = defense
+        this.gold       = gold
+        this.xp         = xp
+        this.level      = 1
+        this.alive      = true
+        this.inventory  = []
+    end
+
+    method take_damage amount
+        actual = amount - this.defense
+        if actual < 1
+            actual = 1
+        end
+        this.hp = this.hp - actual
+        if this.hp < 1
+            this.hp    = 0
+            this.alive = false
+        end
+        return actual
+    end
+
+    method heal amount
+        this.hp = clamp_hp(this.hp + amount, this.max_hp)
+    end
+
+    method strike()
+        variance = roll_dice(4) - 2
+        dmg = this.attack + variance
+        if dmg < 1
+            dmg = 1
+        end
+        return dmg
+    end
+
+    method gain_xp amount
+        this.xp = this.xp + amount
+        if this.xp > this.level * 20
+            this.level  = this.level + 1
+            this.attack = this.attack + 2
+            this.max_hp = this.max_hp + 10
+            this.hp     = clamp_hp(this.hp + 10, this.max_hp)
+            print ""
+            print "  ★ LEVEL UP! " + this.name + " is now level " + to_str(this.level) + "!"
+            print "    Attack +2  ·  Max HP +10"
+        end
+    end
+
+    method add_item item
+        this.inventory = append(this.inventory, item)
+    end
+
+    method has_item item
+        return contains_item(this.inventory, item)
+    end
+
+    method status_line()
+        hp_bar   = this.hp_bar()
+        line     = this.name + " [" + this.class_name + "]"
+        line     = line + "  HP: " + to_str(this.hp) + "/" + to_str(this.max_hp)
+        line     = line + "  " + hp_bar
+        line     = line + "  ATK:" + to_str(this.attack)
+        line     = line + "  DEF:" + to_str(this.defense)
+        line     = line + "  LVL:" + to_str(this.level)
+        return line
+    end
+
+    method hp_bar()
+        temp_fill = this.hp * 10
+        filled   = temp_fill / this.max_hp
+        bar      = ""
+        i        = 0
+        while i < 10
+            if i < filled
+                bar = bar + "█"
+            else
+                bar = bar + "░"
+            end
+            i = i + 1
+        end
+        return "[" + bar + "]"
+    end
+end
+
+# ───────────────────────────────────────────────────────────
+# ENEMY CLASS
+# ───────────────────────────────────────────────────────────
+
+class Enemy
+    init name hp attack loot_gold loot_xp
+        this.name      = name
+        this.hp        = hp
+        this.max_hp    = hp
+        this.attack    = attack
+        this.loot_gold = loot_gold
+        this.loot_xp   = loot_xp
+        this.alive     = true
+    end
+
+    method take_damage amount
+        this.hp = this.hp - amount
+        if this.hp < 1
+            this.hp    = 0
+            this.alive = false
+        end
+    end
+
+    method strike()
+        variance = roll_dice(3) - 1
+        dmg = this.attack + variance
+        if dmg < 1
+            dmg = 1
+        end
+        return dmg
+    end
+
+    method hp_bar()
+        temp_fill = this.hp * 10
+        filled = temp_fill / this.max_hp
+        bar    = ""
+        i      = 0
+        while i < 10
+            if i < filled
+                bar = bar + "▓"
+            else
+                bar = bar + "░"
+            end
+            i = i + 1
+        end
+        return "[" + bar + "]"
+    end
+end
+
+# ───────────────────────────────────────────────────────────
+# COMBAT ENGINE
+# ───────────────────────────────────────────────────────────
+
+function do_combat hero enemy
+    print ""
+    print "  ⚔  ENCOUNTER: " + enemy.name + "!"
+    print "     " + enemy.name + " HP: " + to_str(enemy.hp) + " / " + to_str(enemy.max_hp)
+    print ""
+
+    round = 1
+
+    while hero.alive and enemy.alive
+        print "  Round " + to_str(round)
+
+        # Hero attacks
+        hero_dmg = hero.strike()
+        enemy.take_damage(hero_dmg)
+        print "  › " + hero.name + " hits " + enemy.name + " for " + to_str(hero_dmg) + " damage"
+        print "    " + enemy.name + " " + enemy.hp_bar() + " " + to_str(enemy.hp) + " HP"
+
+        if not enemy.alive
+            print ""
+            print "  ✓  " + enemy.name + " defeated!"
+            hero.gain_xp(enemy.loot_xp)
+            hero.gold = hero.gold + enemy.loot_gold
+            print "  ✦  +" + to_str(enemy.loot_xp) + " XP  ·  +" + to_str(enemy.loot_gold) + " gold"
+            return true
+        end
+
+        # Enemy attacks
+        enemy_dmg  = enemy.strike()
+        actual_dmg = hero.take_damage(enemy_dmg)
+        print "  › " + enemy.name + " hits " + hero.name + " for " + to_str(actual_dmg) + " damage"
+        print "    " + hero.name + " " + hero.hp_bar() + " " + to_str(hero.hp) + " HP"
+
+        if not hero.alive
+            print ""
+            print "  ✗  " + hero.name + " has fallen!"
+            return false
+        end
+
+        print ""
+        round = round + 1
+    end
+
+    return hero.alive
+end
+
+# ───────────────────────────────────────────────────────────
+# ITEM SHOP
+# ───────────────────────────────────────────────────────────
+
+function visit_shop hero
+    banner("⚗  THE WANDERING MERCHANT")
+    print ""
+    print "  'Ah, a brave adventurer! I have wares for thee.'"
+    print ""
+    print "  [1] Health Potion     — Restore 25 HP       (10 gold)"
+    print "  [2] Iron Shield       — Defense +3           (20 gold)"
+    print "  [3] Sharpened Blade   — Attack +4            (25 gold)"
+    print "  [4] Elixir of Mending — Restore full HP      (40 gold)"
+    print ""
+    print "  Your gold: " + to_str(hero.gold)
+    print ""
+
+    # Buy health potion if affordable and below half health
+    half_hp  = hero.max_hp / 2
+    need_hp  = hero.hp < half_hp
+
+    if need_hp and hero.gold > 9 and not hero.has_item("Health Potion")
+        hero.gold = hero.gold - 10
+        hero.add_item("Health Potion")
+        print "  Purchase: Health Potion  (-10 gold)"
+    end
+
+    if hero.gold > 19 and not hero.has_item("Iron Shield")
+        hero.gold    = hero.gold - 20
+        hero.defense = hero.defense + 3
+        hero.add_item("Iron Shield")
+        print "  Purchase: Iron Shield    (-20 gold)  Defense +" + to_str(hero.defense)
+    end
+
+    if hero.gold > 24 and not hero.has_item("Sharpened Blade")
+        hero.gold   = hero.gold - 25
+        hero.attack = hero.attack + 4
+        hero.add_item("Sharpened Blade")
+        print "  Purchase: Sharpened Blade (-25 gold)  Attack +" + to_str(hero.attack)
+    end
+
+    # Use potion if we have one and HP is low
+    if hero.has_item("Health Potion") and hero.hp < half_hp
+        hero.heal(25)
+        print ""
+        print "  ♥  Used Health Potion  →  HP now " + to_str(hero.hp)
+    end
+
+    print ""
+    print "  Gold remaining: " + to_str(hero.gold)
+end
+
+# ───────────────────────────────────────────────────────────
+# DUNGEON ROOMS
+# ───────────────────────────────────────────────────────────
+
+function build_dungeon()
+    rooms = []
+
+    room1 = {
+        "id":   1,
+        "name": "The Gatehouse",
+        "desc": "Crumbling stone walls. A torch flickers. Something growls.",
+        "enemy_name":   "Goblin Scout",
+        "enemy_hp":     18,
+        "enemy_attack": 4,
+        "enemy_gold":   8,
+        "enemy_xp":     12,
+        "has_shop":     false,
+        "loot":         "Rusty Key"
+    }
+
+    room2 = {
+        "id":   2,
+        "name": "The Merchant Quarter",
+        "desc": "Broken carts and scattered coin. A merchant waves from a stall.",
+        "enemy_name":   "",
+        "enemy_hp":     0,
+        "enemy_attack": 0,
+        "enemy_gold":   0,
+        "enemy_xp":     0,
+        "has_shop":     true,
+        "loot":         ""
+    }
+
+    room3 = {
+        "id":   3,
+        "name": "The Collapsed Hall",
+        "desc": "Fallen pillars. Bones crunch underfoot. Eyes gleam in the dark.",
+        "enemy_name":   "Skeleton Warrior",
+        "enemy_hp":     28,
+        "enemy_attack": 6,
+        "enemy_gold":   12,
+        "enemy_xp":     18,
+        "has_shop":     false,
+        "loot":         "Ancient Tome"
+    }
+
+    room4 = {
+        "id":   4,
+        "name": "The Flooded Vault",
+        "desc": "Ankle-deep water. Glowing runes pulse on the walls.",
+        "enemy_name":   "Cave Troll",
+        "enemy_hp":     40,
+        "enemy_attack": 9,
+        "enemy_gold":   20,
+        "enemy_xp":     25,
+        "has_shop":     false,
+        "loot":         "Troll Fang"
+    }
+
+    room5 = {
+        "id":   5,
+        "name": "The Throne Room",
+        "desc": "A massive chamber. The Dragon Warlord rises from the shadows.",
+        "enemy_name":   "Dragon Warlord",
+        "enemy_hp":     60,
+        "enemy_attack": 14,
+        "enemy_gold":   50,
+        "enemy_xp":     40,
+        "has_shop":     false,
+        "loot":         "Dragon Crown"
+    }
+
+    rooms = append(rooms, room1)
+    rooms = append(rooms, room2)
+    rooms = append(rooms, room3)
+    rooms = append(rooms, room4)
+    rooms = append(rooms, room5)
+
+    return rooms
+end
+
+# ───────────────────────────────────────────────────────────
+# SAVE / LOAD
+# ───────────────────────────────────────────────────────────
+
+function save_game hero room_index
+    save_data = {
+        "name":       hero.name,
+        "class_name": hero.class_name,
+        "hp":         hero.hp,
+        "max_hp":     hero.max_hp,
+        "attack":     hero.attack,
+        "defense":    hero.defense,
+        "gold":       hero.gold,
+        "xp":         hero.xp,
+        "level":      hero.level,
+        "inventory":  hero.inventory,
+        "room":       room_index
+    }
+    save_json("dungeon_save.json", save_data)
+    print ""
+    print "  💾  Game saved.  (dungeon_save.json)"
+end
+
+# ───────────────────────────────────────────────────────────
+# SCORE BOARD
+# ───────────────────────────────────────────────────────────
+
+function show_score_board hero rooms_cleared
+    banner("🏆  ADVENTURE COMPLETE")
+    print ""
+    print "  Hero       : " + hero.name + " the " + hero.class_name
+    print "  Level      : " + to_str(hero.level)
+    print "  Final HP   : " + to_str(hero.hp) + " / " + to_str(hero.max_hp)
+    print "  Attack     : " + to_str(hero.attack)
+    print "  Defense    : " + to_str(hero.defense)
+    print "  Gold       : " + to_str(hero.gold)
+    print "  XP         : " + to_str(hero.xp)
+    print "  Rooms      : " + to_str(rooms_cleared) + " cleared"
+    print ""
+    print "  Inventory  :"
+    if length(hero.inventory) == 0
+        print "    (nothing)"
+    else
+        foreach item in hero.inventory
+            print "    · " + item
+        end
+    end
+    print ""
+
+    # Save final score to JSON
+    score_data = {
+        "hero":          hero.name,
+        "class":         hero.class_name,
+        "level":         hero.level,
+        "final_hp":      hero.hp,
+        "gold":          hero.gold,
+        "xp":            hero.xp,
+        "rooms_cleared": rooms_cleared,
+        "inventory":     hero.inventory
+    }
+    save_json("dungeon_score.json", score_data)
+    print "  Score saved to dungeon_score.json"
+end
+
+# ───────────────────────────────────────────────────────────
+# LOOT TABLE
+# ───────────────────────────────────────────────────────────
+
+function collect_loot hero loot_name
+    if length(loot_name) > 0
+        hero.add_item(loot_name)
+        print "  🎁  Found: " + loot_name
+    end
+end
+
+# ───────────────────────────────────────────────────────────
+# STATS DISPLAY
+# ───────────────────────────────────────────────────────────
+
+function print_stats hero
+    print ""
+    print "  " + hero.status_line()
+    print ""
+end
+
+# ═══════════════════════════════════════════════════════════
+# MAIN GAME
+# ═══════════════════════════════════════════════════════════
+
+banner("DUNGEON QUEST")
+print ""
+print "  A MYTH Lang Showcase Program"
+print "  Demonstrating: classes · objects · methods"
+print "  loops · functions · JSON · file I/O · builtins"
+print ""
+separator()
+print ""
+
+# ── Create the hero ─────────────────────────────────────────
+hero = Hero("Aldric", "Knight", 60, 10, 3, 15, 0)
+
+print "  Your hero has entered the dungeon."
+print ""
+print_stats(hero)
+
+# ── Build the dungeon ────────────────────────────────────────
+rooms         = build_dungeon()
+rooms_cleared = 0
+room_index    = 0
+
+# ── Walk through each room ───────────────────────────────────
+while room_index < length(rooms) and hero.alive
+    room = rooms[room_index]
+
+    print ""
+    banner("ROOM " + to_str(room["id"]) + " — " + upper(room["name"]))
+    print ""
+    print "  " + room["desc"]
+    print ""
+
+    # Shop room
+    if room["has_shop"]
+        visit_shop(hero)
+        rooms_cleared = rooms_cleared + 1
+        room_index    = room_index + 1
+        save_game(hero, room_index)
+        print_stats(hero)
+    else
+        # Combat room
+        enemy = Enemy(
+            room["enemy_name"],
+            room["enemy_hp"],
+            room["enemy_attack"],
+            room["enemy_gold"],
+            room["enemy_xp"]
+        )
+
+        victory = do_combat(hero, enemy)
+
+        if victory
+            collect_loot(hero, room["loot"])
+            rooms_cleared = rooms_cleared + 1
+            room_index    = room_index + 1
+            save_game(hero, room_index)
+            print_stats(hero)
+        end
+
+        # Use potion automatically if below 30% health
+        temp_danger = hero.max_hp * 3
+        danger_hp   = temp_danger / 10
+        if hero.alive and hero.hp < danger_hp and hero.has_item("Health Potion")
+            hero.heal(25)
+            print "  ♥  Emergency potion used!  HP → " + to_str(hero.hp)
+        end
+    end
+end
+
+# ── Ending ───────────────────────────────────────────────────
+print ""
+
+if hero.alive
+    print ""
+    banner("VICTORY")
+    print ""
+    print "  " + hero.name + " emerges from the dungeon victorious!"
+    print "  The Dragon Crown gleams in the torchlight."
+    print ""
+    show_score_board(hero, rooms_cleared)
+else
+    banner("GAME OVER")
+    print ""
+    print "  " + hero.name + " has fallen in the dungeon."
+    print "  " + to_str(rooms_cleared) + " rooms cleared before the end."
+    print ""
+end
+
+# ── Show save file contents ──────────────────────────────────
+if file_exists("dungeon_score.json")
+    print ""
+    separator()
+    print "  Final score data (from dungeon_score.json):"
+    separator()
+    score = load_json("dungeon_score.json")
+    print "  Hero:   " + score["hero"] + " the " + score["class"]
+    print "  Level:  " + to_str(score["level"])
+    print "  Gold:   " + to_str(score["gold"])
+    print "  XP:     " + to_str(score["xp"])
+    print "  Rooms:  " + to_str(score["rooms_cleared"])
+    separator()
+    delete_file("dungeon_score.json")
+end
+
+if file_exists("dungeon_save.json")
+    delete_file("dungeon_save.json")
+end
